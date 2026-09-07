@@ -1,27 +1,3 @@
-<!-- ======================================================================
-  NAMA APLIKASI   : Portal Pemeriksaan Data Ternak (Kecamatan Tabundung)
-  DESKRIPSI       : Dashboard frontend untuk monitoring & verifikasi ternak keluar.
-  
-  BAHASA & TEKNOLOGI YANG DIPAKAI:
-  1. HTML5        : Struktur dasar tata letak halaman web.
-  2. Tailwind CSS : Kerangka kerja CSS untuk desain responsif & modern (Glassmorphism).
-  3. Font Awesome : Pustaka ikon vektor untuk mempermanis antarmuka.
-  4. Google Fonts : Penggunaan huruf jenis 'Plus Jakarta Sans'.
-  5. JavaScript   : Logika interaktif, paginasi, pencarian, dan komunikasi data.
-  6. Apps Script  : Menghubungkan frontend web ke database Supabase via backend.
-
-  FASILITAS / FITUR UTAMA:
-  1. Ringkasan Statistik Real-Time : Menampilkan total data serta rincian jenis
-     ternak (Kerbau, Sapi, Kuda) lengkap dengan tombol refresh.
-  2. Tabel Database Ternak : Menampilkan record data lengkap (No. KKMT, Jenis, 
-     Kelamin, Pemilik & NIK, Asal, Pengantar, dan tautan foto dokumen KKMT).
-  3. Live Search / Pencarian Cepat : Menyaring data secara instan berdasarkan 
-     nama pemilik, nomor KKMT, NIK, asal ternak, atau nama pengantar.
-  4. Sistem Paginasi (Pagination) : Membagi data per halaman (5 data per halaman) 
-     agar tabel tetap rapi, lengkap dengan tombol navigasi (First, Prev, Next, Last).
-  5. Indukator Waktu & Responsif : Menyesuaikan tanggal lokal bahasa Indonesia 
-     secara otomatis serta optimal diakses lewat HP maupun komputer.
-====================================================================== -->
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -177,10 +153,10 @@
   </footer>
 
   <script>
-    // ==========================================
-    // Script koneksi ke GAS
-    // ==========================================
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbxF3UzKBvtx1iJraMJlLI7bL1bQ7gG4XUIZSq95U240xPaZzWhpcrsJ1flMOuOGFIdiGg/exec";
+    // =========================================================================
+    // Masukkan URL Web App Google Apps Script Anda yang berakhiran /exec di sini:
+    // =========================================================================
+    const GAS_URL = "https://script.google.com/macros/s/AKfycb...[GANTI_DENGAN_URL_ANDA]/exec";
 
     let rawDataPemeriksa = [];
     let filteredData = [];
@@ -200,8 +176,9 @@
     }
 
     function loadStats() {
-      google.script.run
-        .withSuccessHandler(function(stats) {
+      fetch(`${GAS_URL}?action=getStats`)
+        .then(response => response.json())
+        .then(stats => {
           if (stats) {
             document.getElementById('statTotal').innerText = stats.total || 0;
             document.getElementById('statKerbau').innerText = stats.kerbau || 0;
@@ -211,11 +188,10 @@
             document.getElementById('statsGrid').classList.remove('hidden-custom');
           }
         })
-        .withFailureHandler(function(err) {
+        .catch(err => {
           console.error("Gagal memuat statistik:", err);
           document.getElementById('statsLoading').innerText = "Gagal memuat statistik.";
-        })
-        .getLivestockStats();
+        });
     }
 
     function loadDataPemeriksa() {
@@ -224,19 +200,19 @@
       document.getElementById('paginationContainer').classList.add('hidden-custom');
       document.getElementById('emptyDataText').classList.add('hidden-custom');
 
-      google.script.run
-        .withSuccessHandler(function(data) {
+      fetch(`${GAS_URL}?action=getData`)
+        .then(response => response.json())
+        .then(data => {
           rawDataPemeriksa = data || [];
           filteredData = rawDataPemeriksa;
           currentPage = 1;
           renderTabelPemeriksa();
         })
-        .withFailureHandler(function(err) {
+        .catch(err => {
           document.getElementById('tabelLoading').classList.add('hidden-custom');
           document.getElementById('emptyDataText').classList.remove('hidden-custom');
           console.error("Gagal memuat data:", err);
-        })
-        .getDaftarTernak();
+        });
     }
 
     function renderTabelPemeriksa() {
