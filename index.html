@@ -152,7 +152,7 @@
     <p class="text-xs font-medium text-gray-500">&copy; <span id="copyrightYear"></span> Kecamatan Tabundung - aRL</p>
   </footer>
 
-  <script>
+<script>
     const GAS_URL = "https://script.google.com/macros/s/AKfycbyoSB2ZXw1wol-R2RsyyplD6YPOxf_zqwfPBb6ku1WiaO7WUSlK9wWcYYv74kc4nJaQ8A/exec";
 
     let rawDataPemeriksa = [];
@@ -176,6 +176,7 @@
       fetch(`${GAS_URL}?action=getStats`)
         .then(response => response.json())
         .then(stats => {
+          console.log("Statistik diterima:", stats); // Cek F12 Console
           if (stats) {
             document.getElementById('statTotal').innerText = stats.total || 0;
             document.getElementById('statKerbau').innerText = stats.kerbau || 0;
@@ -200,7 +201,9 @@
       fetch(`${GAS_URL}?action=getData`)
         .then(response => response.json())
         .then(data => {
-          rawDataPemeriksa = data || [];
+          console.log("Data tabel diterima:", data); // Cek F12 Console
+          // Mengamankan jika data terbungkus di dalam objek lain
+          rawDataPemeriksa = Array.isArray(data) ? data : (data.data || []);
           filteredData = rawDataPemeriksa;
           currentPage = 1;
           renderTabelPemeriksa();
@@ -208,7 +211,7 @@
         .catch(err => {
           document.getElementById('tabelLoading').classList.add('hidden-custom');
           document.getElementById('emptyDataText').classList.remove('hidden-custom');
-          console.error("Gagal memuat data:", err);
+          console.error("Gagal memuat data tabel:", err);
         });
     }
 
@@ -305,6 +308,7 @@
       currentPage = 1;
       renderTabelPemeriksa();
     }
+  </script>
   </script>
 </body>
 </html>
