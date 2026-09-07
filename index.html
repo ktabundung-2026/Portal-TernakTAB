@@ -177,6 +177,23 @@
   </footer>
 
   <script>
+    // ==========================================
+    // Script koneksi ke GAS
+    // ==========================================
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxF3UzKBvtx1iJraMJlLI7bL1bQ7gG4XUIZSq95U240xPaZzWhpcrsJ1flMOuOGFIdiGg/exec";
+
+    let rawDataPemeriksa = [];
+    let filteredData = [];
+    let currentPage = 1;
+    const itemsPerPage = 5;
+
+    window.onload = function() {
+      tampilkanTanggalTerkini();
+      document.getElementById('copyrightYear').innerText = new Date().getFullYear();
+      loadStats();
+      loadDataPemeriksa();
+    };
+    
     let rawDataPemeriksa = [];
     let filteredData = [];
     let currentPage = 1;
