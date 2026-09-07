@@ -1,1 +1,336 @@
+<!-- ======================================================================
+  NAMA APLIKASI   : Portal Pemeriksaan Data Ternak (Kecamatan Tabundung)
+  DESKRIPSI       : Dashboard frontend untuk monitoring & verifikasi ternak keluar.
+  
+  BAHASA & TEKNOLOGI YANG DIPAKAI:
+  1. HTML5        : Struktur dasar tata letak halaman web.
+  2. Tailwind CSS : Kerangka kerja CSS untuk desain responsif & modern (Glassmorphism).
+  3. Font Awesome : Pustaka ikon vektor untuk mempermanis antarmuka.
+  4. Google Fonts : Penggunaan huruf jenis 'Plus Jakarta Sans'.
+  5. JavaScript   : Logika interaktif, paginasi, pencarian, dan komunikasi data.
+  6. Apps Script  : Menghubungkan frontend web ke database Supabase via backend.
 
+  FASILITAS / FITUR UTAMA:
+  1. Ringkasan Statistik Real-Time : Menampilkan total data serta rincian jenis
+     ternak (Kerbau, Sapi, Kuda) lengkap dengan tombol refresh.
+  2. Tabel Database Ternak : Menampilkan record data lengkap (No. KKMT, Jenis, 
+     Kelamin, Pemilik & NIK, Asal, Pengantar, dan tautan foto dokumen KKMT).
+  3. Live Search / Pencarian Cepat : Menyaring data secara instan berdasarkan 
+     nama pemilik, nomor KKMT, NIK, asal ternak, atau nama pengantar.
+  4. Sistem Paginasi (Pagination) : Membagi data per halaman (5 data per halaman) 
+     agar tabel tetap rapi, lengkap dengan tombol navigasi (First, Prev, Next, Last).
+  5. Indukator Waktu & Responsif : Menyesuaikan tanggal lokal bahasa Indonesia 
+     secara otomatis serta optimal diakses lewat HP maupun komputer.
+====================================================================== -->
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Portal Pemeriksaan Data Ternak</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: radial-gradient(circle at top right, #eff6ff, #f3f4f6);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .hidden-custom { display: none !important; }
+    .glass-effect {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .overflow-x-auto::-webkit-scrollbar { height: 4px; }
+    .overflow-x-auto::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-between p-3 sm:p-4 md:p-6 antialiased">
+
+  <div class="w-full max-w-5xl flex flex-col gap-3 sm:gap-4 mb-6">
+    <div class="glass-effect p-4 sm:p-5 rounded-2xl shadow-lg border border-white/80 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
+      <div class="flex items-center gap-3 w-full sm:w-auto">
+        <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold text-lg sm:text-xl shadow-md shadow-blue-200 shrink-0">
+          <i class="fa-solid fa-clipboard-check"></i>
+        </div>
+        <div>
+          <h1 class="text-base sm:text-xl font-extrabold text-gray-900 tracking-tight leading-snug">Portal Pemeriksaan Data Ternak</h1>
+          <p class="text-[11px] sm:text-xs text-gray-500 font-medium">Monitoring Real-Time & Verifikasi Ternak Keluar - Kecamatan Tabundung</p>
+        </div>
+      </div>
+      <div class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 bg-gray-100 text-gray-700 text-xs font-semibold px-3 py-2 rounded-xl border border-gray-200">
+        <i class="fa-solid fa-calendar-day text-blue-600"></i>
+        <span id="tanggalHariIni">Memuat tanggal...</span>
+      </div>
+    </div>
+
+    <!-- Statistik -->
+    <div class="glass-effect p-4 sm:p-5 rounded-2xl shadow-lg border border-white/80 w-full">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+          <i class="fa-solid fa-chart-line text-blue-600"></i> Ringkasan Total
+        </h3>
+        <button onclick="loadStats()" class="text-blue-600 hover:text-blue-800 text-xs font-semibold active:scale-95 transition">
+          <i class="fa-solid fa-rotate"></i> Refresh
+        </button>
+      </div>
+      <div id="statsLoading" class="text-center py-3 text-gray-400 text-xs font-medium">
+        <i class="fa-solid fa-circle-notch fa-spin text-blue-500 mr-1"></i> Memuat data statistik...
+      </div>
+      <div id="statsGrid" class="hidden-custom grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 text-center">
+        <div class="bg-blue-50/80 p-2.5 sm:p-3 rounded-xl border border-gray-100">
+          <span class="text-[10px] sm:text-[11px] font-bold text-blue-700 block">Total Data</span>
+          <span class="text-xl sm:text-2xl font-black text-gray-800" id="statTotal">0</span>
+        </div>
+        <div class="bg-yellow-50/80 p-2.5 sm:p-3 rounded-xl border border-gray-100">
+          <span class="text-[10px] sm:text-[11px] font-bold text-yellow-600 block">Kerbau</span>
+          <span class="text-xl sm:text-2xl font-black text-gray-800" id="statKerbau">0</span>
+        </div>
+        <div class="bg-indigo-50/80 p-2.5 sm:p-3 rounded-xl border border-gray-100">
+          <span class="text-[10px] sm:text-[11px] font-bold text-blue-500 block">Sapi</span>
+          <span class="text-xl sm:text-2xl font-black text-gray-800" id="statSapi">0</span>
+        </div>
+        <div class="bg-red-50/80 p-2.5 sm:p-3 rounded-xl border border-gray-100">
+          <span class="text-[10px] sm:text-[11px] font-bold text-pink-500 block">Kuda</span>
+          <span class="text-xl sm:text-2xl font-black text-gray-800" id="statKuda">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabel Utama dengan Header Kolom Supabase -->
+    <div class="glass-effect p-4 sm:p-6 rounded-2xl shadow-lg border border-white/80 w-full">
+      <div class="flex items-center justify-between pb-3 mb-4 border-b border-gray-200/80">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-database text-blue-600 text-lg"></i>
+          <h2 class="text-sm sm:text-base font-bold text-gray-800 tracking-tight">Database Ternak Keluar (database_ternak_tab)</h2>
+        </div>
+      </div>
+
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-3 mb-4">
+        <div class="relative w-full sm:w-80">
+          <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-gray-400 text-xs"></i>
+          <input type="text" id="searchInput" onkeyup="filterTabel()" placeholder="Cari No_KKMT / Nama_Pemilik..." class="w-full bg-white border border-gray-200 rounded-xl py-2 pl-9 pr-3 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+        </div>
+        <div class="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
+          <span class="text-xs text-gray-500 font-semibold">Total: <span id="dataCount" class="text-blue-700 font-bold">0</span> Data</span>
+          <button onclick="loadDataPemeriksa()" class="bg-blue-600 active:bg-blue-700 hover:bg-blue-700 text-white text-xs font-semibold py-2 px-3 rounded-xl transition flex items-center gap-1.5 shadow-sm">
+            <i class="fa-solid fa-rotate"></i> Refresh
+          </button>
+        </div>
+      </div>
+
+      <div id="tabelLoading" class="text-center py-10 text-gray-400 text-xs">
+        <i class="fa-solid fa-circle-notch fa-spin text-blue-600 text-2xl mb-2"></i>
+        <p>Mengambil data dari Supabase...</p>
+      </div>
+
+      <div id="tabelContainer" class="overflow-x-auto rounded-xl border border-gray-200 shadow-sm hidden-custom bg-white">
+        <table class="w-full text-left border-collapse min-w-[800px]">
+          <thead>
+            <tr class="bg-gray-100/90 border-b border-gray-200 text-[11px] font-bold text-gray-600 uppercase tracking-wider">
+              <th class="py-3 px-3">No</th>
+              <th class="py-3 px-3">No_KKMT</th>
+              <th class="py-3 px-3">Jenis_Ternak</th>
+              <th class="py-3 px-3">Jenis_Kelamin</th>
+              <th class="py-3 px-3">Nama_Pemilik & NIK_Pemilik</th>
+              <th class="py-3 px-3">Asal_Ternak</th>
+              <th class="py-3 px-3">Nama_Pengantar</th>
+              <th class="py-3 px-3 text-center">Link_FotoKKMT</th>
+            </tr>
+          </thead>
+          <tbody id="tabelBody" class="text-xs divide-y divide-gray-100 text-gray-700"></tbody>
+        </table>
+      </div>
+
+      <!-- Paginasi -->
+      <div id="paginationContainer" class="hidden-custom flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 pt-3 border-t border-gray-100 text-xs">
+        <span class="text-gray-500 font-medium" id="pageIndicator">Halaman 1 dari 1</span>
+        <div class="flex items-center gap-1.5">
+          <button id="btnFirst" onclick="goToPage(1)" class="px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-600 font-bold bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition">&lt;&lt;</button>
+          <button id="btnPrev" onclick="changePage(-1)" class="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 font-semibold bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 transition"><i class="fa-solid fa-chevron-left text-[10px]"></i> Prev</button>
+          <button id="btnNext" onclick="changePage(1)" class="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 font-semibold bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 transition">Next <i class="fa-solid fa-chevron-right text-[10px]"></i></button>
+          <button id="btnLast" onclick="goToLastPage()" class="px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-600 font-bold bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition">&gt;&gt;</button>
+        </div>
+      </div>
+
+      <!-- Pesan Kosong -->
+      <div id="emptyDataText" class="text-center py-10 px-4 hidden-custom flex flex-col items-center justify-center">
+        <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-xl mb-3 shadow-inner">
+          <i class="fa-solid fa-file-circle-xmark"></i>
+        </div>
+        <p class="text-xs font-bold text-gray-700 mb-1">Data Tabel Kosong</p>
+        <div class="inline-flex items-center gap-1.5 bg-amber-50 text-amber-800 text-[11px] sm:text-xs font-semibold px-3 py-1.5 rounded-xl border border-amber-200 mt-1">
+          <i class="fa-solid fa-triangle-exclamation text-amber-600"></i>
+          <span>Belum ada record data pada database_ternak_tab</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="w-full text-center py-4 border-t border-gray-200/60 mt-auto">
+    <p class="text-xs font-medium text-gray-500">&copy; <span id="copyrightYear"></span> Kecamatan Tabundung - aRL</p>
+  </footer>
+
+  <script>
+    let rawDataPemeriksa = [];
+    let filteredData = [];
+    let currentPage = 1;
+    const itemsPerPage = 5;
+
+    window.onload = function() {
+      tampilkanTanggalTerkini();
+      document.getElementById('copyrightYear').innerText = new Date().getFullYear();
+      loadStats();
+      loadDataPemeriksa();
+    };
+
+    function tampilkanTanggalTerkini() {
+      const opsi = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+      document.getElementById('tanggalHariIni').innerText = new Date().toLocaleDateString('id-ID', opsi);
+    }
+
+    function loadStats() {
+      google.script.run
+        .withSuccessHandler(function(stats) {
+          if (stats) {
+            document.getElementById('statTotal').innerText = stats.total || 0;
+            document.getElementById('statKerbau').innerText = stats.kerbau || 0;
+            document.getElementById('statSapi').innerText = stats.sapi || 0;
+            document.getElementById('statKuda').innerText = stats.kuda || 0;
+            document.getElementById('statsLoading').classList.add('hidden-custom');
+            document.getElementById('statsGrid').classList.remove('hidden-custom');
+          }
+        })
+        .withFailureHandler(function(err) {
+          console.error("Gagal memuat statistik:", err);
+          document.getElementById('statsLoading').innerText = "Gagal memuat statistik.";
+        })
+        .getLivestockStats();
+    }
+
+    function loadDataPemeriksa() {
+      document.getElementById('tabelLoading').classList.remove('hidden-custom');
+      document.getElementById('tabelContainer').classList.add('hidden-custom');
+      document.getElementById('paginationContainer').classList.add('hidden-custom');
+      document.getElementById('emptyDataText').classList.add('hidden-custom');
+
+      google.script.run
+        .withSuccessHandler(function(data) {
+          rawDataPemeriksa = data || [];
+          filteredData = rawDataPemeriksa;
+          currentPage = 1;
+          renderTabelPemeriksa();
+        })
+        .withFailureHandler(function(err) {
+          document.getElementById('tabelLoading').classList.add('hidden-custom');
+          document.getElementById('emptyDataText').classList.remove('hidden-custom');
+          console.error("Gagal memuat data:", err);
+        })
+        .getDaftarTernak();
+    }
+
+    function renderTabelPemeriksa() {
+      document.getElementById('tabelLoading').classList.add('hidden-custom');
+      const tbody = document.getElementById('tabelBody');
+      tbody.innerHTML = "";
+
+      if (filteredData.length === 0) {
+        document.getElementById('tabelContainer').classList.add('hidden-custom');
+        document.getElementById('paginationContainer').classList.add('hidden-custom');
+        document.getElementById('emptyDataText').classList.remove('hidden-custom');
+        document.getElementById('dataCount').innerText = 0;
+        return;
+      }
+
+      document.getElementById('emptyDataText').classList.add('hidden-custom');
+
+      const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+      if (currentPage > totalPages) currentPage = totalPages;
+      if (currentPage < 1) currentPage = 1;
+
+      const startIndex = (currentPage - 1) * itemsPerPage;
+      const pageData = filteredData.slice(startIndex, startIndex + itemsPerPage);
+
+      document.getElementById('dataCount').innerText = filteredData.length;
+      document.getElementById('tabelContainer').classList.remove('hidden-custom');
+
+      pageData.forEach(function(item, idx) {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-blue-50/50 transition";
+
+        const fotoBtn = item.fileUrl 
+          ? `<a href="${item.fileUrl}" target="_blank" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 active:bg-blue-100 whitespace-nowrap"><i class="fa-solid fa-image"></i> Buka Link</a>`
+          : `<span class="text-gray-300 font-medium whitespace-nowrap">Null</span>`;
+
+        tr.innerHTML = `
+          <td class="py-3 px-3 font-semibold text-gray-500">${startIndex + idx + 1}</td>
+          <td class="py-3 px-3 font-bold text-gray-900 whitespace-nowrap">${item.nomorKkmt}</td>
+          <td class="py-3 px-3 font-semibold text-blue-700 whitespace-nowrap">${item.jenisTernak}</td>
+          <td class="py-3 px-3 whitespace-nowrap">${item.jenisKelamin}</td>
+          <td class="py-3 px-3 min-w-[140px]">
+            <div class="font-bold text-gray-800">${item.namaPemilik}</div>
+            <div class="text-[10px] text-gray-400">NIK: ${item.nikPemilik}</div>
+          </td>
+          <td class="py-3 px-3 whitespace-nowrap">${item.asalTernak}</td>
+          <td class="py-3 px-3 whitespace-nowrap">${item.namaPengantar}</td>
+          <td class="py-3 px-3 text-center">${fotoBtn}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      if (totalPages > 1) {
+        document.getElementById('paginationContainer').classList.remove('hidden-custom');
+        document.getElementById('pageIndicator').innerText = `Halaman ${currentPage} dari ${totalPages}`;
+        
+        const isFirstPage = currentPage === 1;
+        const isLastPage = currentPage === totalPages;
+
+        document.getElementById('btnFirst').disabled = isFirstPage;
+        document.getElementById('btnPrev').disabled = isFirstPage;
+        document.getElementById('btnNext').disabled = isLastPage;
+        document.getElementById('btnLast').disabled = isLastPage;
+      } else {
+        document.getElementById('paginationContainer').classList.add('hidden-custom');
+      }
+    }
+
+    function changePage(direction) {
+      currentPage += direction;
+      renderTabelPemeriksa();
+    }
+
+    function goToPage(page) {
+      currentPage = page;
+      renderTabelPemeriksa();
+    }
+
+    function goToLastPage() {
+      const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+      currentPage = totalPages;
+      renderTabelPemeriksa();
+    }
+
+    function filterTabel() {
+      const q = document.getElementById('searchInput').value.toLowerCase().trim();
+      if (!q) {
+        filteredData = rawDataPemeriksa;
+      } else {
+        filteredData = rawDataPemeriksa.filter(function(item) {
+          return item.namaPemilik.toLowerCase().includes(q) ||
+                 item.nomorKkmt.toLowerCase().includes(q) ||
+                 item.nikPemilik.toLowerCase().includes(q) ||
+                 item.asalTernak.toLowerCase().includes(q) ||
+                 item.namaPengantar.toLowerCase().includes(q);
+        });
+      }
+      currentPage = 1;
+      renderTabelPemeriksa();
+    }
+  </script>
+</body>
+</html>
