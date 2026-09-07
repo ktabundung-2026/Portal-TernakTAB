@@ -134,15 +134,15 @@
       <div id="tabelContainer" class="custom-scroll max-h-[420px] overflow-y-auto overflow-x-auto rounded-xl border border-gray-200 shadow-sm hidden-custom bg-white">
         <table class="w-full text-left border-collapse min-w-[800px]">
           <thead class="sticky top-0 z-10">
-            <tr class="bg-gray-100 border-b border-gray-200 text-[11px] font-bold text-gray-600 uppercase tracking-wider">
+            <tr class="bg-gray-100 border-b border-gray-200 text-[11px] font-bold text-gray-600 tracking-wider">
               <th class="py-3 px-3 bg-gray-100">No</th>
-              <th class="py-3 px-3 bg-gray-100">No_KKMT</th>
+              <th class="py-3 px-3 bg-gray-100">No. KKMT</th>
               <th class="py-3 px-3 bg-gray-100">Jenis Ternak</th>
-              <th class="py-3 px-3 bg-gray-100">Jenis_Kelamin</th>
-              <th class="py-3 px-3 bg-gray-100">Nama_Pemilik</th>
-              <th class="py-3 px-3 bg-gray-100">Asal_Ternak</th>
-              <th class="py-3 px-3 bg-gray-100">Nama_Pengantar</th>
-              <th class="py-3 px-3 text-center bg-gray-100">Link_FotoKKMT</th>
+              <th class="py-3 px-3 bg-gray-100">Jenis Kelamin</th>
+              <th class="py-3 px-3 bg-gray-100">Nama Pemilik</th>
+              <th class="py-3 px-3 bg-gray-100">Asal Ternak</th>
+              <th class="py-3 px-3 bg-gray-100">Nama Pengantar</th>
+              <th class="py-3 px-3 text-center bg-gray-100">Link Foto KKMT</th>
             </tr>
           </thead>
           <tbody id="tabelBody" class="text-xs divide-y divide-gray-100 text-gray-700"></tbody>
@@ -299,7 +299,6 @@
         const tr = document.createElement('tr');
         tr.className = "hover:bg-blue-50/50 transition";
 
-        // Pengecekan Link Foto dari Bucket (jika ada isinya tampilkan tombol, jika kosong/null tampilkan "Tidak Ada Foto")
         const hasValidUrl = item.fileUrl && item.fileUrl.trim() !== "" && item.fileUrl.toLowerCase() !== "null" && item.fileUrl !== "-";
         
         const fotoBtn = hasValidUrl 
