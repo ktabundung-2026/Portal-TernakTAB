@@ -193,18 +193,6 @@
       loadStats();
       loadDataPemeriksa();
     };
-    
-    let rawDataPemeriksa = [];
-    let filteredData = [];
-    let currentPage = 1;
-    const itemsPerPage = 5;
-
-    window.onload = function() {
-      tampilkanTanggalTerkini();
-      document.getElementById('copyrightYear').innerText = new Date().getFullYear();
-      loadStats();
-      loadDataPemeriksa();
-    };
 
     function tampilkanTanggalTerkini() {
       const opsi = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
