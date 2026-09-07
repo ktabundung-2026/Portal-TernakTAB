@@ -78,12 +78,12 @@
       </div>
     </div>
 
-    <!-- Tabel Utama dengan Header Kolom Supabase -->
+    <!-- Tabel Utama -->
     <div class="glass-effect p-4 sm:p-6 rounded-2xl shadow-lg border border-white/80 w-full">
       <div class="flex items-center justify-between pb-3 mb-4 border-b border-gray-200/80">
         <div class="flex items-center gap-2">
           <i class="fa-solid fa-database text-blue-600 text-lg"></i>
-          <h2 class="text-sm sm:text-base font-bold text-gray-800 tracking-tight">Database Ternak Keluar (database_ternak_tab)</h2>
+          <h2 class="text-sm sm:text-base font-bold text-gray-800 tracking-tight">Database Ternak Keluar</h2>
         </div>
       </div>
 
@@ -102,7 +102,7 @@
 
       <div id="tabelLoading" class="text-center py-10 text-gray-400 text-xs">
         <i class="fa-solid fa-circle-notch fa-spin text-blue-600 text-2xl mb-2"></i>
-        <p>Mengambil data</p>
+        <p>Mengambil data...</p>
       </div>
 
       <div id="tabelContainer" class="overflow-x-auto rounded-xl border border-gray-200 shadow-sm hidden-custom bg-white">
@@ -111,9 +111,9 @@
             <tr class="bg-gray-100/90 border-b border-gray-200 text-[11px] font-bold text-gray-600 uppercase tracking-wider">
               <th class="py-3 px-3">No</th>
               <th class="py-3 px-3">No_KKMT</th>
-              <th class="py-3 px-3">Jenis_Ternak</th>
+              <th class="py-3 px-3">Jenis Ternak</th>
               <th class="py-3 px-3">Jenis_Kelamin</th>
-              <th class="py-3 px-3">Nama_Pemilik & NIK_Pemilik</th>
+              <th class="py-3 px-3">Nama_Pemilik</th> <!-- NIK Dihilangkan dari header -->
               <th class="py-3 px-3">Asal_Ternak</th>
               <th class="py-3 px-3">Nama_Pengantar</th>
               <th class="py-3 px-3 text-center">Link_FotoKKMT</th>
@@ -153,9 +153,6 @@
   </footer>
 
   <script>
-    // =========================================================================
-    // Masukkan URL Web App Google Apps Script Anda yang berakhiran /exec di sini:
-    // =========================================================================
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxF3UzKBvtx1iJraMJlLI7bL1bQ7gG4XUIZSq95U240xPaZzWhpcrsJ1flMOuOGFIdiGg/exec";
 
     let rawDataPemeriksa = [];
@@ -249,14 +246,11 @@
           : `<span class="text-gray-300 font-medium whitespace-nowrap">Null</span>`;
 
         tr.innerHTML = `
-          <td class="py-3 px-3 font-semibold text-gray-500">${startIndex + idx + 1}</td>
+          <td class="py-3 px-3 font-semibold text-gray-500">${item.no}</td>
           <td class="py-3 px-3 font-bold text-gray-900 whitespace-nowrap">${item.nomorKkmt}</td>
           <td class="py-3 px-3 font-semibold text-blue-700 whitespace-nowrap">${item.jenisTernak}</td>
           <td class="py-3 px-3 whitespace-nowrap">${item.jenisKelamin}</td>
-          <td class="py-3 px-3 min-w-[140px]">
-            <div class="font-bold text-gray-800">${item.namaPemilik}</div>
-            <div class="text-[10px] text-gray-400">NIK: ${item.nikPemilik}</div>
-          </td>
+          <td class="py-3 px-3 min-w-[140px] font-bold text-gray-800">${item.namaPemilik}</td>
           <td class="py-3 px-3 whitespace-nowrap">${item.asalTernak}</td>
           <td class="py-3 px-3 whitespace-nowrap">${item.namaPengantar}</td>
           <td class="py-3 px-3 text-center">${fotoBtn}</td>
@@ -304,7 +298,6 @@
         filteredData = rawDataPemeriksa.filter(function(item) {
           return item.namaPemilik.toLowerCase().includes(q) ||
                  item.nomorKkmt.toLowerCase().includes(q) ||
-                 item.nikPemilik.toLowerCase().includes(q) ||
                  item.asalTernak.toLowerCase().includes(q) ||
                  item.namaPengantar.toLowerCase().includes(q);
         });
