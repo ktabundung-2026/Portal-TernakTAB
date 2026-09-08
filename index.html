@@ -4,7 +4,7 @@
   Nama File      : index.html
   Deskripsi      : Frontend portal monitoring ternak keluar dengan fitur tabel interaktif,
                    paginasi, pencarian, pratinjau foto pop-up modal aman (Zoom & Pan),
-                   serta validasi ekstensi universal (.jpg, .jpeg, .png, .pdf).
+                   serta validasi ekstensi universal (.jpg, .jpeg, .png, .webp, .pdf).
   ====================================================================================
 -->
 <!DOCTYPE html>
@@ -226,6 +226,7 @@
 
   <script>
     const GAS_URL = "https://script.google.com/macros/s/AKfycbzD785Sjz78xpbOKDu2BR757Dp9XhReLJ1Tih2EEGfcKaNkPE90771kwQwykh_xoiVz/exec";
+    const SUPABASE_STORAGE_BASE = "https://tdmcatsgixnvgkmxuzqt.supabase.co/storage/v1/object/public/Folder_Foto/";
 
     let rawDataPemeriksa = [];
     let filteredData = [];
@@ -293,16 +294,39 @@
         });
     }
 
-    // Fungsi Validasi Apakah URL Berupa File Foto/Dokumen yang Valid
-    function isValidPhotoUrl(url) {
-      if (!url || typeof url !== 'string') return false;
-      const cleanUrl = url.trim().toLowerCase();
+    // Fungsi Pembantu: Mengambil Nama File/URL Foto Utuh dari Objek Data
+    function getFotoPathFromItem(item) {
+      if (!item) return "";
+      return item.fotoFileName || item.fileUrl || "";
+    }
+
+    // Fungsi Validasi: Memeriksa Ekstensi Gambar/Dokumen Secara Universal
+    function isValidPhotoUrl(rawPath) {
+      if (!rawPath || typeof rawPath !== 'string') return false;
+      const cleanPath = rawPath.trim().toLowerCase();
       
-      // Harus berupa link HTTP/HTTPS atau path folder yang mengandung ekstensi valid
-      const validExtensions = ['.jpg', '.jpeg', '.png', '.pdf'];
-      const hasValidExt = validExtensions.some(ext => cleanUrl.endsWith(ext) || cleanUrl.includes(ext + '?'));
+      const validExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.pdf'];
+      return validExtensions.some(ext => cleanPath.endsWith(ext) || cleanPath.includes(ext + '?'));
+    }
+
+    // Fungsi Universal untuk Rekonstruksi & Normalisasi URL Foto Supabase
+    function resolveImageUrl(rawUrl) {
+      if (!rawUrl) return "";
+      let cleaned = rawUrl.trim();
       
-      return hasValidExt && (cleanUrl.startsWith('http') || cleanUrl.includes('folder_foto'));
+      // Jika sudah berupa URL penuh (HTTP/HTTPS/BLOB)
+      if (cleaned.startsWith('http://') || cleaned.startsWith('https://') || cleaned.startsWith('blob:')) {
+        return cleaned;
+      }
+
+      // Jika hanya berupa nama file (misal: 'Ternak_045878_1788508661272.jpeg' atau '00000899_1788880602316.jpg')
+      let filename = cleaned;
+      if (cleaned.includes('/')) {
+        const parts = cleaned.split('/');
+        filename = parts[parts.length - 1];
+      }
+
+      return SUPABASE_STORAGE_BASE + encodeURIComponent(filename);
     }
 
     function renderTabelPemeriksa() {
@@ -336,11 +360,12 @@
 
         const nomorUrut = startIndex + index + 1;
 
-        // Cek validitas Link_FotoKKMT (fileUrl)
-        const isPhotoValid = isValidPhotoUrl(item.fileUrl);
+        // Ambil path foto dan cek kevalidan
+        const fotoPath = getFotoPathFromItem(item);
+        const isPhotoValid = isValidPhotoUrl(fotoPath);
 
         const fotoBtn = isPhotoValid 
-          ? `<button onclick="openSecurePhotoModal('${encodeURIComponent(item.fileUrl)}')" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 active:bg-blue-100 whitespace-nowrap cursor-pointer"><i class="fa-solid fa-image"></i> Lihat Foto</button>`
+          ? `<button onclick="openSecurePhotoModal('${encodeURIComponent(fotoPath)}')" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 active:bg-blue-100 whitespace-nowrap cursor-pointer"><i class="fa-solid fa-image"></i> Lihat Foto</button>`
           : `<span class="text-gray-400 font-medium whitespace-nowrap">Tidak ada foto</span>`;
 
         tr.innerHTML = `
@@ -359,7 +384,7 @@
       if (totalPages > 1) {
         document.getElementById('paginationContainer').classList.remove('hidden-custom');
         document.getElementById('pageIndicator').innerText = `Halaman ${currentPage} dari ${totalPages}`;
-         
+          
         const isFirstPage = currentPage === 1;
         const isLastPage = currentPage === totalPages;
 
@@ -402,27 +427,6 @@
       }
       currentPage = 1;
       renderTabelPemeriksa();
-    }
-
-    // --- Fungsi Universal untuk Rekonstruksi & Normalisasi URL Foto Supabase ---
-    function resolveImageUrl(rawUrl) {
-      if (!rawUrl) return "";
-      let cleaned = rawUrl.trim();
-      
-      if (cleaned.startsWith('http://') || cleaned.startsWith('https://') || cleaned.startsWith('blob:')) {
-        return cleaned;
-      }
-
-      // Jika URL lama/baru hanya berupa nama file atau path relatif
-      let filename = cleaned;
-      if (cleaned.includes('/')) {
-        const parts = cleaned.split('/');
-        filename = parts[parts.length - 1];
-      }
-
-      // Basis URL Supabase Anda secara presisi
-      const supabaseBaseUrl = "https://tdmcatsgixnvgkmxuzqt.supabase.co/storage/v1/object/public/Folder_Foto/";
-      return supabaseBaseUrl + encodeURIComponent(filename);
     }
 
     // --- Fungsi Keamanan Foto & Blob Loader ---
