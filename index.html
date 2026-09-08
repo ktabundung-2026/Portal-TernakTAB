@@ -313,18 +313,20 @@
     const tr = document.createElement('tr');
     tr.className = "hover:bg-blue-50/50 transition";
 
-    // 1. Definisikan atau pastikan variabel bersih digunakan
     const fotoUrl = item.fileUrl ? String(item.fileUrl).trim() : "";
     const lowerUrl = fotoUrl.toLowerCase();
     
+    // Validasi diperluas agar mendeteksi domain supabase Anda secara akurat
     const isUrlValid = fotoUrl !== "" && 
                        fotoUrl !== "-" && 
                        lowerUrl !== "null" && 
                        lowerUrl !== "undefined" && 
                        lowerUrl !== "tidak ada foto" &&
-                       (fotoUrl.startsWith("http://") || fotoUrl.startsWith("https://") || fotoUrl.startsWith("/"));
+                       (fotoUrl.startsWith("http://") || 
+                        fotoUrl.startsWith("https://") || 
+                        fotoUrl.includes("supabase.co") || 
+                        fotoUrl.startsWith("/"));
     
-    // 2. Gunakan 'fotoUrl' (bukan item.fileUrl) di dalam pemanggilan fungsi modal
     const fotoBtn = isUrlValid 
       ? `<button onclick="bukaModalFoto('${fotoUrl}')" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 active:bg-blue-100 whitespace-nowrap transition cursor-pointer"><i class="fa-solid fa-eye"></i> Lihat Foto</button>`
       : `<span class="inline-flex items-center gap-1 text-[11px] text-gray-400 font-medium bg-gray-100 px-2.5 py-1 rounded-lg border border-gray-200 whitespace-nowrap"><i class="fa-solid fa-ban text-[10px]"></i> Tidak Ada Foto</span>`;
@@ -341,7 +343,6 @@
     `;
     tbody.appendChild(tr);
   });
-
       if (totalPages > 1) {
         document.getElementById('paginationContainer').classList.remove('hidden-custom');
         document.getElementById('pageIndicator').innerText = `Halaman ${currentPage} dari ${totalPages}`;
