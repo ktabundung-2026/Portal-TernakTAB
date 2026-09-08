@@ -1,10 +1,10 @@
 <!-- 
   ====================================================================================
-  Nama Aplikasi  : Sistem Portal-Ternak Wilayah Kecamatan Tabundung (v.1.8 - Secure Image)
+  Nama Aplikasi  : Sistem Portal-Ternak Wilayah Kecamatan Tabundung (v.2.0 - Secure Universal View)
   Nama File      : index.html
   Deskripsi      : Frontend portal monitoring ternak keluar dengan fitur tabel interaktif,
-                   paginasi (10 per halaman), pencarian real-time, Title Case Header,
-                   pratinjau foto pop-up modal (Zoom & Pan), serta penyembunyian URL asli.
+                   paginasi, pencarian, pratinjau foto pop-up modal aman (Zoom & Pan),
+                   serta validasi ekstensi universal (.jpg, .jpeg, .png, .pdf).
   ====================================================================================
 -->
 <!DOCTYPE html>
@@ -190,7 +190,6 @@
       
       <!-- Body Modal (Container Zoom & Pan) -->
       <div id="modalImageContainer" class="relative flex-1 bg-gray-900 flex items-center justify-center p-4 min-h-[350px] sm:min-h-[450px]">
-        <!-- Loading indikator saat foto diunduh rahasia -->
         <div id="imageLoading" class="absolute text-white text-xs flex items-center gap-2">
           <i class="fa-solid fa-circle-notch fa-spin text-blue-400"></i> Memuat gambar aman...
         </div>
@@ -204,7 +203,7 @@
         </div>
       </div>
 
-      <!-- Footer Modal (Kontrol Zoom Saja, Tombol Buka Asli Dihilangkan) -->
+      <!-- Footer Modal (Kontrol Zoom) -->
       <div class="px-4 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-center text-xs">
         <div class="flex items-center gap-2">
           <button onclick="zoomIn()" class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 font-semibold px-3 py-1.5 rounded-lg shadow-sm transition">
@@ -233,14 +232,13 @@
     let currentPage = 1;
     const itemsPerPage = 10;
 
-    // Variabel untuk state Zoom & Pan Foto
     let scale = 1;
     let pointX = 0;
     let pointY = 0;
     let startX = 0;
     let startY = 0;
     let isDragging = false;
-    let currentBlobUrl = null; // Menyimpan memori blob sementara
+    let currentBlobUrl = null;
 
     window.onload = function() {
       tampilkanTanggalTerkini();
@@ -295,6 +293,18 @@
         });
     }
 
+    // Fungsi Validasi Apakah URL Berupa File Foto/Dokumen yang Valid
+    function isValidPhotoUrl(url) {
+      if (!url || typeof url !== 'string') return false;
+      const cleanUrl = url.trim().toLowerCase();
+      
+      // Harus berupa link HTTP/HTTPS atau path folder yang mengandung ekstensi valid
+      const validExtensions = ['.jpg', '.jpeg', '.png', '.pdf'];
+      const hasValidExt = validExtensions.some(ext => cleanUrl.endsWith(ext) || cleanUrl.includes(ext + '?'));
+      
+      return hasValidExt && (cleanUrl.startsWith('http') || cleanUrl.includes('folder_foto'));
+    }
+
     function renderTabelPemeriksa() {
       document.getElementById('tabelLoading').classList.add('hidden-custom');
       const tbody = document.getElementById('tabelBody');
@@ -326,10 +336,12 @@
 
         const nomorUrut = startIndex + index + 1;
 
-        // Mengirim URL asli ke fungsi JavaScript secara aman (tidak ditulis mentah di atribut href link)
-        const fotoBtn = item.fileUrl 
+        // Cek validitas Link_FotoKKMT (fileUrl)
+        const isPhotoValid = isValidPhotoUrl(item.fileUrl);
+
+        const fotoBtn = isPhotoValid 
           ? `<button onclick="openSecurePhotoModal('${encodeURIComponent(item.fileUrl)}')" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 active:bg-blue-100 whitespace-nowrap cursor-pointer"><i class="fa-solid fa-image"></i> Lihat Foto</button>`
-          : `<span class="text-gray-400 font-medium whitespace-nowrap">Tidak Ada</span>`;
+          : `<span class="text-gray-400 font-medium whitespace-nowrap">Tidak ada foto</span>`;
 
         tr.innerHTML = `
           <td class="py-3 px-3 font-semibold text-gray-500">${nomorUrut}</td>
@@ -392,34 +404,53 @@
       renderTabelPemeriksa();
     }
 
-    // --- Fungsi Keamanan Foto (Menyembunyikan URL Asli dari F12 & DOM) ---
+    // --- Fungsi Universal untuk Rekonstruksi & Normalisasi URL Foto Supabase ---
+    function resolveImageUrl(rawUrl) {
+      if (!rawUrl) return "";
+      let cleaned = rawUrl.trim();
+      
+      if (cleaned.startsWith('http://') || cleaned.startsWith('https://') || cleaned.startsWith('blob:')) {
+        return cleaned;
+      }
+
+      // Jika URL lama/baru hanya berupa nama file atau path relatif
+      let filename = cleaned;
+      if (cleaned.includes('/')) {
+        const parts = cleaned.split('/');
+        filename = parts[parts.length - 1];
+      }
+
+      // Basis URL Supabase Anda secara presisi
+      const supabaseBaseUrl = "https://tdmcatsgixnvgkmxuzqt.supabase.co/storage/v1/object/public/Folder_Foto/";
+      return supabaseBaseUrl + encodeURIComponent(filename);
+    }
+
+    // --- Fungsi Keamanan Foto & Blob Loader ---
     async function openSecurePhotoModal(encodedUrl) {
-      const realUrl = decodeURIComponent(encodedUrl);
+      const decodedRawUrl = decodeURIComponent(encodedUrl);
+      const realUrl = resolveImageUrl(decodedRawUrl);
+      
       const modal = document.getElementById('photoModal');
       const modalImg = document.getElementById('modalImage');
       const imgLoading = document.getElementById('imageLoading');
 
-      // Tampilkan modal dan indikator loading
       modal.classList.remove('hidden-custom');
       modalImg.classList.add('hidden-custom');
       imgLoading.classList.remove('hidden-custom');
       resetZoom();
 
-      // Hapus blob sebelumnya jika ada untuk efisiensi memori
       if (currentBlobUrl) {
         URL.revokeObjectURL(currentBlobUrl);
         currentBlobUrl = null;
       }
 
       try {
-        // Ambil data gambar secara asinkron menggunakan fetch
         const response = await fetch(realUrl);
-        const blob = await response.blob();
+        if (!response.ok) throw new Error("Gagal mengambil resource");
         
-        // Buat objek URL lokal sementara (blob:http...)
+        const blob = await response.blob();
         currentBlobUrl = URL.createObjectURL(blob);
         
-        // Masukkan blob URL ke tag img agar URL Supabase asli tidak terlihat di F12
         modalImg.src = currentBlobUrl;
         
         modalImg.onload = function() {
@@ -427,8 +458,12 @@
           modalImg.classList.remove('hidden-custom');
         };
       } catch (error) {
-        console.error("Gagal memuat gambar secara aman:", error);
-        imgLoading.innerText = "Gagal memuat gambar.";
+        console.warn("Gagal fetch blob, menggunakan direct path:", error);
+        modalImg.src = realUrl;
+        modalImg.onload = function() {
+          imgLoading.classList.add('hidden-custom');
+          modalImg.classList.remove('hidden-custom');
+        };
       }
     }
 
@@ -439,7 +474,6 @@
       modal.classList.add('hidden-custom');
       modalImg.src = "";
 
-      // Bersihkan memori blob saat modal ditutup
       if (currentBlobUrl) {
         URL.revokeObjectURL(currentBlobUrl);
         currentBlobUrl = null;
@@ -476,7 +510,6 @@
       const container = document.getElementById('modalImageContainer');
       const img = document.getElementById('modalImage');
 
-      // Double Click untuk Zoom In/Out
       img.addEventListener('dblclick', function(e) {
         e.preventDefault();
         if (scale === 1) {
@@ -487,7 +520,6 @@
         updateImageTransform();
       });
 
-      // Event Mouse untuk Drag / Pan
       container.addEventListener('mousedown', function(e) {
         if (scale > 1) {
           isDragging = true;
@@ -507,7 +539,6 @@
         isDragging = false;
       });
 
-      // Event Touch untuk Perangkat Mobile (Geser/Pan)
       container.addEventListener('touchstart', function(e) {
         if (scale > 1 && e.touches.length === 1) {
           isDragging = true;
