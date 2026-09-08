@@ -309,25 +309,35 @@
       return validExtensions.some(ext => cleanPath.endsWith(ext) || cleanPath.includes(ext + '?'));
     }
 
-    // Fungsi Universal untuk Rekonstruksi & Normalisasi URL Foto Supabase
-    function resolveImageUrl(rawUrl) {
-      if (!rawUrl) return "";
-      let cleaned = rawUrl.trim();
-      
-      // Jika sudah berupa URL penuh (HTTP/HTTPS/BLOB)
-      if (cleaned.startsWith('http://') || cleaned.startsWith('https://') || cleaned.startsWith('blob:')) {
-        return cleaned;
-      }
+    // Fungsi Universal untuk Rekonstruksi & Normalisasi URL Foto Supabase (Diperbaiki)
+function resolveImageUrl(rawUrl) {
+  if (!rawUrl) return "";
+  let cleaned = String(rawUrl).trim();
+  
+  // 1. Jika sudah berupa URL utuh (HTTP/HTTPS/BLOB), kembalikan langsung
+  if (cleaned.startsWith('http://') || cleaned.startsWith('https://') || cleaned.startsWith('blob:')) {
+    return cleaned;
+  }
 
-      // Jika hanya berupa nama file (misal: 'Ternak_045878_1788508661272.jpeg' atau '00000899_1788880602316.jpg')
-      let filename = cleaned;
-      if (cleaned.includes('/')) {
-        const parts = cleaned.split('/');
-        filename = parts[parts.length - 1];
-      }
+  // 2. Jika nilai berupa nama file/path relatif, bersihkan karakter slash berlebih di awal
+  cleaned = cleaned.replace(/^\/+/, '');
 
-      return SUPABASE_STORAGE_BASE + encodeURIComponent(filename);
-    }
+  // 3. Ambil nama file saja jika terdapat struktur folder di dalamnya
+  if (cleaned.includes('/')) {
+    const parts = cleaned.split('/');
+    cleaned = parts[parts.length - 1];
+  }
+
+  // 4. Decode dulu untuk menghindari double encoding jika nama file sudah ter-encode dari backend
+  try {
+    cleaned = decodeURIComponent(cleaned);
+  } catch (e) {
+    // abaikan jika tidak bisa didecode
+  }
+
+  // 5. Gabungkan dengan base URL Supabase Storage
+  return SUPABASE_STORAGE_BASE + encodeURI(cleaned);
+}
 
     function renderTabelPemeriksa() {
       document.getElementById('tabelLoading').classList.add('hidden-custom');
@@ -429,47 +439,38 @@
       renderTabelPemeriksa();
     }
 
-    // --- Fungsi Keamanan Foto & Blob Loader ---
-    async function openSecurePhotoModal(encodedUrl) {
-      const decodedRawUrl = decodeURIComponent(encodedUrl);
-      const realUrl = resolveImageUrl(decodedRawUrl);
-      
-      const modal = document.getElementById('photoModal');
-      const modalImg = document.getElementById('modalImage');
-      const imgLoading = document.getElementById('imageLoading');
+    // Fungsi Modal Foto (Diperbaiki)
+async function openSecurePhotoModal(encodedUrl) {
+  const decodedRawUrl = decodeURIComponent(encodedUrl);
+  const realUrl = resolveImageUrl(decodedRawUrl);
+  
+  const modal = document.getElementById('photoModal');
+  const modalImg = document.getElementById('modalImage');
+  const imgLoading = document.getElementById('imageLoading');
 
-      modal.classList.remove('hidden-custom');
-      modalImg.classList.add('hidden-custom');
-      imgLoading.classList.remove('hidden-custom');
-      resetZoom();
+  modal.classList.remove('hidden-custom');
+  modalImg.classList.add('hidden-custom');
+  imgLoading.classList.remove('hidden-custom');
+  resetZoom();
 
-      if (currentBlobUrl) {
-        URL.revokeObjectURL(currentBlobUrl);
-        currentBlobUrl = null;
-      }
+  if (currentBlobUrl) {
+    URL.revokeObjectURL(currentBlobUrl);
+    currentBlobUrl = null;
+  }
 
-      try {
-        const response = await fetch(realUrl);
-        if (!response.ok) throw new Error("Gagal mengambil resource");
-        
-        const blob = await response.blob();
-        currentBlobUrl = URL.createObjectURL(blob);
-        
-        modalImg.src = currentBlobUrl;
-        
-        modalImg.onload = function() {
-          imgLoading.classList.add('hidden-custom');
-          modalImg.classList.remove('hidden-custom');
-        };
-      } catch (error) {
-        console.warn("Gagal fetch blob, menggunakan direct path:", error);
-        modalImg.src = realUrl;
-        modalImg.onload = function() {
-          imgLoading.classList.add('hidden-custom');
-          modalImg.classList.remove('hidden-custom');
-        };
-      }
-    }
+  // Coba ambil via direct <img> src terlebih dahulu (lebih tahan terhadap variasi header/CORS)
+  modalImg.src = realUrl;
+  
+  modalImg.onload = function() {
+    imgLoading.classList.add('hidden-custom');
+    modalImg.classList.remove('hidden-custom');
+  };
+
+  modalImg.onerror = function() {
+    console.error("Gagal memuat gambar dari URL:", realUrl);
+    imgLoading.innerText = "Gagal memuat gambar. Pastikan file ada di Folder Foto.";
+  };
+}
 
     function closePhotoModal() {
       const modal = document.getElementById('photoModal');
