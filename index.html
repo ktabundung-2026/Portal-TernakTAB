@@ -1,9 +1,10 @@
 <!-- 
   ====================================================================================
-  Nama Aplikasi  : Sistem Portal-Ternak Wilayah Kecamatan Tabundung (v.1.6 - Clean Frontend)
+  Nama Aplikasi  : Sistem Portal-Ternak Wilayah Kecamatan Tabundung (v.1.7 - Updated Frontend)
   Nama File      : index.html
   Deskripsi      : Frontend portal monitoring ternak keluar dengan fitur tabel interaktif,
-                   paginasi, pencarian real-time, dan pratinjau foto (Zoom & Pan).
+                   paginasi (10 per halaman), pencarian real-time, Title Case Header,
+                   serta pratinjau foto pop-up modal (Zoom & Pan).
   ====================================================================================
 -->
 <!DOCTYPE html>
@@ -32,6 +33,24 @@
     }
     .overflow-x-auto::-webkit-scrollbar { height: 4px; }
     .overflow-x-auto::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    
+    /* Styling Modal Zoom & Pan Foto */
+    #photoModal {
+      transition: opacity 0.3s ease;
+    }
+    #modalImageContainer {
+      overflow: hidden;
+      cursor: grab;
+      touch-action: none;
+    }
+    #modalImageContainer:active {
+      cursor: grabbing;
+    }
+    #modalImage {
+      transform-origin: center center;
+      transition: transform 0.1s ease-out;
+      user-select: none;
+    }
   </style>
 </head>
 <body class="min-h-screen flex flex-col items-center justify-between p-3 sm:p-4 md:p-6 antialiased">
@@ -98,7 +117,7 @@
       <div class="flex flex-col sm:flex-row items-center justify-between gap-3 mb-4">
         <div class="relative w-full sm:w-80">
           <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-gray-400 text-xs"></i>
-          <input type="text" id="searchInput" onkeyup="filterTabel()" placeholder="Cari No_KKMT / Nama_Pemilik..." class="w-full bg-white border border-gray-200 rounded-xl py-2 pl-9 pr-3 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+          <input type="text" id="searchInput" onkeyup="filterTabel()" placeholder="Cari No KKMT / Nama Pemilik..." class="w-full bg-white border border-gray-200 rounded-xl py-2 pl-9 pr-3 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/30">
         </div>
         <div class="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
           <span class="text-xs text-gray-500 font-semibold">Total: <span id="dataCount" class="text-blue-700 font-bold">0</span> Data</span>
@@ -118,12 +137,12 @@
           <thead>
             <tr class="bg-gray-100/90 border-b border-gray-200 text-[11px] font-bold text-gray-600 uppercase tracking-wider">
               <th class="py-3 px-3">No</th>
-              <th class="py-3 px-3">No_KKMT</th>
+              <th class="py-3 px-3">Nomor KKMT</th>
               <th class="py-3 px-3">Jenis Ternak</th>
-              <th class="py-3 px-3">Jenis_Kelamin</th>
-              <th class="py-3 px-3">Nama_Pemilik</th>
-              <th class="py-3 px-3">Asal_Ternak</th>
-              <th class="py-3 px-3">Nama_Pengantar</th>
+              <th class="py-3 px-3">Jenis Kelamin</th>
+              <th class="py-3 px-3">Nama Pemilik</th>
+              <th class="py-3 px-3">Asal Ternak</th>
+              <th class="py-3 px-3">Nama Pengantar</th>
               <th class="py-3 px-3 text-center">Foto / Dokumen</th>
             </tr>
           </thead>
@@ -156,6 +175,51 @@
     </div>
   </div>
 
+  <!-- Modal Pop-up untuk Zoom & Pan Foto -->
+  <div id="photoModal" class="hidden-custom fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+      <!-- Header Modal -->
+      <div class="px-4 py-3 bg-gray-100 flex items-center justify-between border-b border-gray-200">
+        <h3 class="text-xs sm:text-sm font-bold text-gray-800 flex items-center gap-2">
+          <i class="fa-solid fa-image text-blue-600"></i> Pratinjau Foto & Dokumen Ternak
+        </h3>
+        <button onclick="closePhotoModal()" class="text-gray-500 hover:text-red-600 text-sm font-bold p-1 transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      
+      <!-- Body Modal (Container Zoom & Pan) -->
+      <div id="modalImageContainer" class="relative flex-1 bg-gray-900 flex items-center justify-center p-4 min-h-[350px] sm:min-h-[450px]">
+        <img id="modalImage" src="" alt="Pratinjau Foto" class="max-h-[60vh] max-w-full object-contain rounded-lg shadow-md">
+        
+        <!-- Tooltip Panduan -->
+        <div class="absolute bottom-3 left-1/2 transform -translate-x-1/2 bg-black/60 backdrop-blur-md text-white text-[10px] sm:text-xs px-3 py-1.5 rounded-full pointer-events-none flex items-center gap-2">
+          <span><i class="fa-solid fa-computer-mouse"></i> Klik 2x untuk Perbesar/Perkecil</span>
+          <span>|</span>
+          <span><i class="fa-solid fa-hand"></i> Geser foto saat diperbesar</span>
+        </div>
+      </div>
+
+      <!-- Footer Modal (Control Buttons) -->
+      <div class="px-4 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between text-xs">
+        <div class="flex items-center gap-2">
+          <button onclick="zoomIn()" class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 font-semibold px-3 py-1.5 rounded-lg shadow-sm transition">
+            <i class="fa-solid fa-magnifying-glass-plus"></i> Zoom In
+          </button>
+          <button onclick="zoomOut()" class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 font-semibold px-3 py-1.5 rounded-lg shadow-sm transition">
+            <i class="fa-solid fa-magnifying-glass-minus"></i> Zoom Out
+          </button>
+          <button onclick="resetZoom()" class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 font-semibold px-3 py-1.5 rounded-lg shadow-sm transition">
+            <i class="fa-solid fa-rotate-right"></i> Reset
+          </button>
+        </div>
+        <a id="modalDownloadBtn" href="" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-3 py-1.5 rounded-lg shadow-sm transition inline-flex items-center gap-1.5">
+          <i class="fa-solid fa-external-link-alt"></i> Buka Asli
+        </a>
+      </div>
+    </div>
+  </div>
+
   <footer class="w-full text-center py-4 border-t border-gray-200/60 mt-auto">
     <p class="text-xs font-medium text-gray-500">&copy; <span id="copyrightYear"></span> Kecamatan Tabundung - aRL</p>
   </footer>
@@ -166,13 +230,22 @@
     let rawDataPemeriksa = [];
     let filteredData = [];
     let currentPage = 1;
-    const itemsPerPage = 5;
+    const itemsPerPage = 10; // Diubah menjadi 10 data per halaman
+
+    // Variabel untuk state Zoom & Pan Foto
+    let scale = 1;
+    let pointX = 0;
+    let pointY = 0;
+    let startX = 0;
+    let startY = 0;
+    let isDragging = false;
 
     window.onload = function() {
       tampilkanTanggalTerkini();
       document.getElementById('copyrightYear').innerText = new Date().getFullYear();
       loadStats();
       loadDataPemeriksa();
+      initZoomAndPan();
     };
 
     function tampilkanTanggalTerkini() {
@@ -245,16 +318,19 @@
       document.getElementById('dataCount').innerText = filteredData.length;
       document.getElementById('tabelContainer').classList.remove('hidden-custom');
 
-      pageData.forEach(function(item) {
+      pageData.forEach(function(item, index) {
         const tr = document.createElement('tr');
         tr.className = "hover:bg-blue-50/50 transition";
 
+        // Urutan nomor tabel dari terkecil (1, 2, 3...) berdasarkan posisi halaman
+        const nomorUrut = startIndex + index + 1;
+
         const fotoBtn = item.fileUrl 
-          ? `<a href="${item.fileUrl}" target="_blank" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 active:bg-blue-100 whitespace-nowrap"><i class="fa-solid fa-image"></i> Buka Foto</a>`
+          ? `<button onclick="openPhotoModal('${item.fileUrl}')" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 active:bg-blue-100 whitespace-nowrap cursor-pointer"><i class="fa-solid fa-image"></i> Lihat Foto</button>`
           : `<span class="text-gray-400 font-medium whitespace-nowrap">Tidak Ada</span>`;
 
         tr.innerHTML = `
-          <td class="py-3 px-3 font-semibold text-gray-500">${item.no}</td>
+          <td class="py-3 px-3 font-semibold text-gray-500">${nomorUrut}</td>
           <td class="py-3 px-3 font-bold text-gray-900 whitespace-nowrap">${item.nomorKkmt}</td>
           <td class="py-3 px-3 font-semibold text-blue-700 whitespace-nowrap">${item.jenisTernak}</td>
           <td class="py-3 px-3 whitespace-nowrap">${item.jenisKelamin}</td>
@@ -269,7 +345,7 @@
       if (totalPages > 1) {
         document.getElementById('paginationContainer').classList.remove('hidden-custom');
         document.getElementById('pageIndicator').innerText = `Halaman ${currentPage} dari ${totalPages}`;
-        
+         
         const isFirstPage = currentPage === 1;
         const isLastPage = currentPage === totalPages;
 
@@ -312,6 +388,106 @@
       }
       currentPage = 1;
       renderTabelPemeriksa();
+    }
+
+    // --- Fungsi Pop-up Modal & Zoom/Pan Foto ---
+    function openPhotoModal(url) {
+      const modal = document.getElementById('photoModal');
+      const modalImg = document.getElementById('modalImage');
+      const downloadBtn = document.getElementById('modalDownloadBtn');
+      
+      modalImg.src = url;
+      downloadBtn.href = url;
+      modal.classList.remove('hidden-custom');
+      resetZoom();
+    }
+
+    function closePhotoModal() {
+      const modal = document.getElementById('photoModal');
+      modal.classList.add('hidden-custom');
+      document.getElementById('modalImage').src = "";
+    }
+
+    function updateImageTransform() {
+      const img = document.getElementById('modalImage');
+      img.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
+    }
+
+    function resetZoom() {
+      scale = 1;
+      pointX = 0;
+      pointY = 0;
+      updateImageTransform();
+    }
+
+    function zoomIn() {
+      scale = Math.min(scale + 0.5, 4);
+      updateImageTransform();
+    }
+
+    function zoomOut() {
+      scale = Math.max(scale - 0.5, 1);
+      if (scale === 1) {
+        pointX = 0;
+        pointY = 0;
+      }
+      updateImageTransform();
+    }
+
+    function initZoomAndPan() {
+      const container = document.getElementById('modalImageContainer');
+      const img = document.getElementById('modalImage');
+
+      // Double Click untuk Zoom In/Out
+      img.addEventListener('dblclick', function(e) {
+        e.preventDefault();
+        if (scale === 1) {
+          scale = 2.5;
+        } else {
+          resetZoom();
+        }
+        updateImageTransform();
+      });
+
+      // Event Mouse untuk Drag / Pan
+      container.addEventListener('mousedown', function(e) {
+        if (scale > 1) {
+          isDragging = true;
+          startX = e.clientX - pointX;
+          startY = e.clientY - pointY;
+        }
+      });
+
+      window.addEventListener('mousemove', function(e) {
+        if (!isDragging) return;
+        pointX = e.clientX - startX;
+        pointY = e.clientY - startY;
+        updateImageTransform();
+      });
+
+      window.addEventListener('mouseup', function() {
+        isDragging = false;
+      });
+
+      // Event Touch untuk Perangkat Mobile (Geser/Pan)
+      container.addEventListener('touchstart', function(e) {
+        if (scale > 1 && e.touches.length === 1) {
+          isDragging = true;
+          startX = e.touches[0].clientX - pointX;
+          startY = e.touches[0].clientY - pointY;
+        }
+      });
+
+      window.addEventListener('touchmove', function(e) {
+        if (!isDragging || e.touches.length !== 1) return;
+        pointX = e.touches[0].clientX - startX;
+        pointY = e.touches[0].clientY - startY;
+        updateImageTransform();
+      });
+
+      window.addEventListener('touchend', function() {
+        isDragging = false;
+      });
     }
   </script>
 </body>
