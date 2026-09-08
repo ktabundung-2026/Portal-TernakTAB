@@ -1,10 +1,10 @@
 <!-- 
   ====================================================================================
-  Nama Aplikasi  : Sistem Portal-Ternak Wilayah Kecamatan Tabundung (v.1.7 - Updated Frontend)
+  Nama Aplikasi  : Sistem Portal-Ternak Wilayah Kecamatan Tabundung (v.1.8 - Secure Image)
   Nama File      : index.html
   Deskripsi      : Frontend portal monitoring ternak keluar dengan fitur tabel interaktif,
                    paginasi (10 per halaman), pencarian real-time, Title Case Header,
-                   serta pratinjau foto pop-up modal (Zoom & Pan).
+                   pratinjau foto pop-up modal (Zoom & Pan), serta penyembunyian URL asli.
   ====================================================================================
 -->
 <!DOCTYPE html>
@@ -190,7 +190,11 @@
       
       <!-- Body Modal (Container Zoom & Pan) -->
       <div id="modalImageContainer" class="relative flex-1 bg-gray-900 flex items-center justify-center p-4 min-h-[350px] sm:min-h-[450px]">
-        <img id="modalImage" src="" alt="Pratinjau Foto" class="max-h-[60vh] max-w-full object-contain rounded-lg shadow-md">
+        <!-- Loading indikator saat foto diunduh rahasia -->
+        <div id="imageLoading" class="absolute text-white text-xs flex items-center gap-2">
+          <i class="fa-solid fa-circle-notch fa-spin text-blue-400"></i> Memuat gambar aman...
+        </div>
+        <img id="modalImage" src="" alt="Pratinjau" class="max-h-[60vh] max-w-full object-contain rounded-lg shadow-md hidden-custom">
         
         <!-- Tooltip Panduan -->
         <div class="absolute bottom-3 left-1/2 transform -translate-x-1/2 bg-black/60 backdrop-blur-md text-white text-[10px] sm:text-xs px-3 py-1.5 rounded-full pointer-events-none flex items-center gap-2">
@@ -200,8 +204,8 @@
         </div>
       </div>
 
-      <!-- Footer Modal (Control Buttons) -->
-      <div class="px-4 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between text-xs">
+      <!-- Footer Modal (Kontrol Zoom Saja, Tombol Buka Asli Dihilangkan) -->
+      <div class="px-4 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-center text-xs">
         <div class="flex items-center gap-2">
           <button onclick="zoomIn()" class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 font-semibold px-3 py-1.5 rounded-lg shadow-sm transition">
             <i class="fa-solid fa-magnifying-glass-plus"></i> Zoom In
@@ -213,9 +217,6 @@
             <i class="fa-solid fa-rotate-right"></i> Reset
           </button>
         </div>
-        <a id="modalDownloadBtn" href="" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-3 py-1.5 rounded-lg shadow-sm transition inline-flex items-center gap-1.5">
-          <i class="fa-solid fa-external-link-alt"></i> Buka Asli
-        </a>
       </div>
     </div>
   </div>
@@ -230,7 +231,7 @@
     let rawDataPemeriksa = [];
     let filteredData = [];
     let currentPage = 1;
-    const itemsPerPage = 10; // Diubah menjadi 10 data per halaman
+    const itemsPerPage = 10;
 
     // Variabel untuk state Zoom & Pan Foto
     let scale = 1;
@@ -239,6 +240,7 @@
     let startX = 0;
     let startY = 0;
     let isDragging = false;
+    let currentBlobUrl = null; // Menyimpan memori blob sementara
 
     window.onload = function() {
       tampilkanTanggalTerkini();
@@ -322,11 +324,11 @@
         const tr = document.createElement('tr');
         tr.className = "hover:bg-blue-50/50 transition";
 
-        // Urutan nomor tabel dari terkecil (1, 2, 3...) berdasarkan posisi halaman
         const nomorUrut = startIndex + index + 1;
 
+        // Mengirim URL asli ke fungsi JavaScript secara aman (tidak ditulis mentah di atribut href link)
         const fotoBtn = item.fileUrl 
-          ? `<button onclick="openPhotoModal('${item.fileUrl}')" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 active:bg-blue-100 whitespace-nowrap cursor-pointer"><i class="fa-solid fa-image"></i> Lihat Foto</button>`
+          ? `<button onclick="openSecurePhotoModal('${encodeURIComponent(item.fileUrl)}')" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 active:bg-blue-100 whitespace-nowrap cursor-pointer"><i class="fa-solid fa-image"></i> Lihat Foto</button>`
           : `<span class="text-gray-400 font-medium whitespace-nowrap">Tidak Ada</span>`;
 
         tr.innerHTML = `
@@ -390,22 +392,58 @@
       renderTabelPemeriksa();
     }
 
-    // --- Fungsi Pop-up Modal & Zoom/Pan Foto ---
-    function openPhotoModal(url) {
+    // --- Fungsi Keamanan Foto (Menyembunyikan URL Asli dari F12 & DOM) ---
+    async function openSecurePhotoModal(encodedUrl) {
+      const realUrl = decodeURIComponent(encodedUrl);
       const modal = document.getElementById('photoModal');
       const modalImg = document.getElementById('modalImage');
-      const downloadBtn = document.getElementById('modalDownloadBtn');
-      
-      modalImg.src = url;
-      downloadBtn.href = url;
+      const imgLoading = document.getElementById('imageLoading');
+
+      // Tampilkan modal dan indikator loading
       modal.classList.remove('hidden-custom');
+      modalImg.classList.add('hidden-custom');
+      imgLoading.classList.remove('hidden-custom');
       resetZoom();
+
+      // Hapus blob sebelumnya jika ada untuk efisiensi memori
+      if (currentBlobUrl) {
+        URL.revokeObjectURL(currentBlobUrl);
+        currentBlobUrl = null;
+      }
+
+      try {
+        // Ambil data gambar secara asinkron menggunakan fetch
+        const response = await fetch(realUrl);
+        const blob = await response.blob();
+        
+        // Buat objek URL lokal sementara (blob:http...)
+        currentBlobUrl = URL.createObjectURL(blob);
+        
+        // Masukkan blob URL ke tag img agar URL Supabase asli tidak terlihat di F12
+        modalImg.src = currentBlobUrl;
+        
+        modalImg.onload = function() {
+          imgLoading.classList.add('hidden-custom');
+          modalImg.classList.remove('hidden-custom');
+        };
+      } catch (error) {
+        console.error("Gagal memuat gambar secara aman:", error);
+        imgLoading.innerText = "Gagal memuat gambar.";
+      }
     }
 
     function closePhotoModal() {
       const modal = document.getElementById('photoModal');
+      const modalImg = document.getElementById('modalImage');
+      
       modal.classList.add('hidden-custom');
-      document.getElementById('modalImage').src = "";
+      modalImg.src = "";
+
+      // Bersihkan memori blob saat modal ditutup
+      if (currentBlobUrl) {
+        URL.revokeObjectURL(currentBlobUrl);
+        currentBlobUrl = null;
+      }
     }
 
     function updateImageTransform() {
@@ -474,7 +512,7 @@
         if (scale > 1 && e.touches.length === 1) {
           isDragging = true;
           startX = e.touches[0].clientX - pointX;
-          startY = e.touches[0].clientY - pointY;
+          startY = e.touches[0].clientY - startY;
         }
       });
 
