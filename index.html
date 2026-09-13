@@ -224,15 +224,24 @@
     <p class="text-xs font-medium text-gray-500">&copy; <span id="copyrightYear"></span> Kecamatan Tabundung - aRL</p>
   </footer>
 
-  <script>
+<script>
+    // ==========================================
+    // 1. KONFIGURASI UTAMA & KREDENSIAL SUPABASE
+    // ==========================================
     const GAS_URL = "https://script.google.com/macros/s/AKfycbzD785Sjz78xpbOKDu2BR757Dp9XhReLJ1Tih2EEGfcKaNkPE90771kwQwykh_xoiVz/exec";
-    const SUPABASE_STORAGE_BASE = "https://tdmcatsgixnvgkmxuzqt.supabase.co/storage/v1/object/public/Folder_Foto/";
+    const SUPABASE_URL = "https://tdmcatsgixnvgkmxuzqt.supabase.co";
+    const BUCKET_NAME = "Folder_Foto";
+    const SUPABASE_STORAGE_BASE = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/`;
 
+    // ==========================================
+    // 2. VARIABEL GLOBAL APLIKASI
+    // ==========================================
     let rawDataPemeriksa = [];
     let filteredData = [];
     let currentPage = 1;
     const itemsPerPage = 10;
 
+    // Variabel Pendukung Fitur Zoom & Pan Modal Foto
     let scale = 1;
     let pointX = 0;
     let pointY = 0;
@@ -241,6 +250,9 @@
     let isDragging = false;
     let currentBlobUrl = null;
 
+    // ==========================================
+    // 3. FUNGSI UTAMA SAAT HALAMAN DIMUAT
+    // ==========================================
     window.onload = function() {
       tampilkanTanggalTerkini();
       document.getElementById('copyrightYear').innerText = new Date().getFullYear();
@@ -254,6 +266,9 @@
       document.getElementById('tanggalHariIni').innerText = new Date().toLocaleDateString('id-ID', opsi);
     }
 
+    // ==========================================
+    // 4. MEMUAT DATA STATISTIK & TABEL
+    // ==========================================
     function loadStats() {
       fetch(`${GAS_URL}?action=getStats`)
         .then(response => response.json())
@@ -294,13 +309,14 @@
         });
     }
 
-    // Fungsi Pembantu: Mengambil Nama File/URL Foto Utuh dari Objek Data
+    // ==========================================
+    // 5. VALIDASI & PENGOLAHAN URL FOTO
+    // ==========================================
     function getFotoPathFromItem(item) {
       if (!item) return "";
       return item.fotoFileName || item.fileUrl || "";
     }
 
-    // Fungsi Validasi: Memeriksa Ekstensi Gambar/Dokumen Secara Universal
     function isValidPhotoUrl(rawPath) {
       if (!rawPath || typeof rawPath !== 'string') return false;
       const cleanPath = rawPath.trim().toLowerCase();
@@ -309,36 +325,37 @@
       return validExtensions.some(ext => cleanPath.endsWith(ext) || cleanPath.includes(ext + '?'));
     }
 
-    // Fungsi Universal untuk Rekonstruksi & Normalisasi URL Foto Supabase (Diperbaiki)
-function resolveImageUrl(rawUrl) {
-  if (!rawUrl) return "";
-  let cleaned = String(rawUrl).trim();
-  
-  // 1. Jika sudah berupa URL utuh (HTTP/HTTPS/BLOB), kembalikan langsung
-  if (cleaned.startsWith('http://') || cleaned.startsWith('https://') || cleaned.startsWith('blob:')) {
-    return cleaned;
-  }
+    function resolveImageUrl(rawUrl) {
+      if (!rawUrl) return "";
+      let cleaned = String(rawUrl).trim();
+      
+      // Jika sudah berupa URL utuh
+      if (cleaned.startsWith('http://') || cleaned.startsWith('https://') || cleaned.startsWith('blob:')) {
+        return cleaned;
+      }
 
-  // 2. Jika nilai berupa nama file/path relatif, bersihkan karakter slash berlebih di awal
-  cleaned = cleaned.replace(/^\/+/, '');
+      // Bersihkan slash di awal
+      cleaned = cleaned.replace(/^\/+/, '');
 
-  // 3. Ambil nama file saja jika terdapat struktur folder di dalamnya
-  if (cleaned.includes('/')) {
-    const parts = cleaned.split('/');
-    cleaned = parts[parts.length - 1];
-  }
+      // Ambil nama file murninya saja jika ada struktur folder
+      if (cleaned.includes('/')) {
+        const parts = cleaned.split('/');
+        cleaned = parts[parts.length - 1];
+      }
 
-  // 4. Decode dulu untuk menghindari double encoding jika nama file sudah ter-encode dari backend
-  try {
-    cleaned = decodeURIComponent(cleaned);
-  } catch (e) {
-    // abaikan jika tidak bisa didecode
-  }
+      // Decode untuk menghindari double encoding
+      try {
+        cleaned = decodeURIComponent(cleaned);
+      } catch (e) {
+        // abaikan
+      }
 
-  // 5. Gabungkan dengan base URL Supabase Storage
-  return SUPABASE_STORAGE_BASE + encodeURI(cleaned);
-}
+      return SUPABASE_STORAGE_BASE + encodeURI(cleaned);
+    }
 
+    // ==========================================
+    // 6. RENDER TABEL & PAGINASI
+    // ==========================================
     function renderTabelPemeriksa() {
       document.getElementById('tabelLoading').classList.add('hidden-custom');
       const tbody = document.getElementById('tabelBody');
@@ -369,11 +386,10 @@ function resolveImageUrl(rawUrl) {
         tr.className = "hover:bg-blue-50/50 transition";
 
         const nomorUrut = startIndex + index + 1;
-
-        // Ambil path foto dan cek kevalidan
         const fotoPath = getFotoPathFromItem(item);
         const isPhotoValid = isValidPhotoUrl(fotoPath);
 
+        // Render tombol foto atau keterangan "Tidak ada foto" secara dinamis
         const fotoBtn = isPhotoValid 
           ? `<button onclick="openSecurePhotoModal('${encodeURIComponent(fotoPath)}')" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 active:bg-blue-100 whitespace-nowrap cursor-pointer"><i class="fa-solid fa-image"></i> Lihat Foto</button>`
           : `<span class="text-gray-400 font-medium whitespace-nowrap">Tidak ada foto</span>`;
@@ -439,38 +455,39 @@ function resolveImageUrl(rawUrl) {
       renderTabelPemeriksa();
     }
 
-    // Fungsi Modal Foto (Diperbaiki)
-async function openSecurePhotoModal(encodedUrl) {
-  const decodedRawUrl = decodeURIComponent(encodedUrl);
-  const realUrl = resolveImageUrl(decodedRawUrl);
-  
-  const modal = document.getElementById('photoModal');
-  const modalImg = document.getElementById('modalImage');
-  const imgLoading = document.getElementById('imageLoading');
+    // ==========================================
+    // 7. MODAL FOTO, ZOOM, & PAN INTERACTION
+    // ==========================================
+    async function openSecurePhotoModal(encodedUrl) {
+      const decodedRawUrl = decodeURIComponent(encodedUrl);
+      const realUrl = resolveImageUrl(decodedRawUrl);
+      
+      const modal = document.getElementById('photoModal');
+      const modalImg = document.getElementById('modalImage');
+      const imgLoading = document.getElementById('imageLoading');
 
-  modal.classList.remove('hidden-custom');
-  modalImg.classList.add('hidden-custom');
-  imgLoading.classList.remove('hidden-custom');
-  resetZoom();
+      modal.classList.remove('hidden-custom');
+      modalImg.classList.add('hidden-custom');
+      imgLoading.classList.remove('hidden-custom');
+      resetZoom();
 
-  if (currentBlobUrl) {
-    URL.revokeObjectURL(currentBlobUrl);
-    currentBlobUrl = null;
-  }
+      if (currentBlobUrl) {
+        URL.revokeObjectURL(currentBlobUrl);
+        currentBlobUrl = null;
+      }
 
-  // Coba ambil via direct <img> src terlebih dahulu (lebih tahan terhadap variasi header/CORS)
-  modalImg.src = realUrl;
-  
-  modalImg.onload = function() {
-    imgLoading.classList.add('hidden-custom');
-    modalImg.classList.remove('hidden-custom');
-  };
+      modalImg.src = realUrl;
+      
+      modalImg.onload = function() {
+        imgLoading.classList.add('hidden-custom');
+        modalImg.classList.remove('hidden-custom');
+      };
 
-  modalImg.onerror = function() {
-    console.error("Gagal memuat gambar dari URL:", realUrl);
-    imgLoading.innerText = "Gagal memuat gambar. Pastikan file ada di Folder Foto.";
-  };
-}
+      modalImg.onerror = function() {
+        console.error("Gagal memuat gambar dari URL:", realUrl);
+        imgLoading.innerText = "Gagal memuat gambar. Pastikan file ada di Folder Foto.";
+      };
+    }
 
     function closePhotoModal() {
       const modal = document.getElementById('photoModal');
@@ -548,7 +565,7 @@ async function openSecurePhotoModal(encodedUrl) {
         if (scale > 1 && e.touches.length === 1) {
           isDragging = true;
           startX = e.touches[0].clientX - pointX;
-          startY = e.touches[0].clientY - startY;
+          startY = e.touches[0].clientY - pointY;
         }
       });
 
