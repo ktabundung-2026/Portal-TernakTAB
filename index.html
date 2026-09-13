@@ -314,7 +314,7 @@
     // ==========================================
     function getFotoPathFromItem(item) {
       if (!item) return "";
-      return item.fotoFileName || item.fileUrl || "";
+      return item.Link_FotoKKMT || item.link_fotokkmt || item.fotoFileName || item.fileUrl || "";
     }
 
     function isValidPhotoUrl(rawPath) {
