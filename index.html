@@ -1,9 +1,9 @@
 <!-- 
   ====================================================================================
-  Nama Aplikasi  : Sistem Portal-Ternak Wilayah Kecamatan Tabundung (v.2.0 - Secure Universal View)
+  Nama Aplikasi  : Sistem Portal-Ternak Wilayah Kecamatan Tabundung (v.2.1 - Secure Universal View)
   Nama File      : index.html
   Deskripsi      : Frontend portal monitoring ternak keluar dengan fitur tabel interaktif,
-                   paginasi, pencarian, pratinjau foto pop-up modal aman (Zoom & Pan),
+                   paginasi, pencarian, pratinjau foto pop-up modal aman (Zoom & Pan leluasa),
                    serta validasi ekstensi universal (.jpg, .jpeg, .png, .webp, .pdf).
   ====================================================================================
 -->
@@ -33,43 +33,51 @@
     }
     .overflow-x-auto::-webkit-scrollbar { height: 4px; }
     .overflow-x-auto::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-     
-    /* Perbaikan Styling Modal agar responsif dan tidak terpotong */
+    
+    /* Styling Modal & Interaksi Zoom/Pan Foto */
     #photoModal {
       transition: opacity 0.3s ease;
-      /* Memastikan modal berada di tengah dan mendukung scroll jika layar terlalu kecil */
       overflow-y: auto;
-   }
-   #photoModal > div {
-     max-height: 90vh;
-     display: flex;
-     flex-direction: column;
-   }
+    }
+    #photoModal > div {
+      max-height: 92vh;
+      display: flex;
+      flex-direction: column;
+    }
     #modalImageContainer {
       overflow: hidden;
       cursor: grab;
       touch-action: none;
       position: relative;
-   }
+      min-height: 380px;
+      background-color: #111827;
+    }
     #modalImageContainer:active {
       cursor: grabbing;
     }
     #modalImage {
       transform-origin: center center;
-      transition: transform 0.1s ease-out;
+      transition: transform 0.05s ease-out;
       user-select: none;
-   }
-   
-   /* Responsif tambahan untuk perangkat mobile kecil */
-   @media (max-width: 640px) {
-     #photoModal {
-       padding: 0.75rem;
-     }
-     #photoModal > div {
-       max-height: 95vh;
-       width: 100%;
-     }
-   }
+      max-width: 100%;
+      max-height: 65vh;
+      object-fit: contain;
+      display: block;
+      margin: auto;
+    }
+    
+    /* Responsif tambahan untuk perangkat mobile */
+    @media (max-width: 640px) {
+      #photoModal {
+        padding: 0.5rem;
+      }
+      #photoModal > div {
+        max-height: 96vh;
+      }
+      #modalImage {
+        max-height: 55vh;
+      }
+    }
   </style>
 </head>
 <body class="min-h-screen flex flex-col items-center justify-between p-3 sm:p-4 md:p-6 antialiased">
@@ -196,7 +204,7 @@
 
   <!-- Modal Pop-up untuk Zoom & Pan Foto -->
   <div id="photoModal" class="hidden-custom fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh]">
       <!-- Header Modal -->
       <div class="px-4 py-3 bg-gray-100 flex items-center justify-between border-b border-gray-200 shrink-0">
         <h3 class="text-xs sm:text-sm font-bold text-gray-800 flex items-center gap-2">
@@ -206,14 +214,14 @@
           <i class="fa-solid fa-xmark text-lg"></i>
         </button>
       </div>
-       
+      
       <!-- Body Modal (Container Zoom & Pan) -->
-      <div id="modalImageContainer" class="relative flex-1 bg-gray-900 flex items-center justify-center p-4 min-h-[300px] sm:min-h-[400px]">
+      <div id="modalImageContainer" class="relative flex-1 bg-gray-900 flex items-center justify-center p-4 min-h-[380px]">
         <div id="imageLoading" class="absolute text-white text-xs flex items-center gap-2">
           <i class="fa-solid fa-circle-notch fa-spin text-blue-400"></i> Memuat gambar aman...
         </div>
-        <img id="modalImage" src="" alt="Pratinjau" class="max-h-[55vh] max-w-full object-contain rounded-lg shadow-md hidden-custom">
-         
+        <img id="modalImage" src="" alt="Pratinjau" class="hidden-custom">
+        
         <!-- Tooltip Panduan -->
         <div class="absolute bottom-3 left-1/2 transform -translate-x-1/2 bg-black/60 backdrop-blur-md text-white text-[10px] sm:text-xs px-3 py-1.5 rounded-full pointer-events-none flex items-center gap-2">
           <span><i class="fa-solid fa-computer-mouse"></i> Klik 2x untuk Perbesar/Perkecil</span>
@@ -244,361 +252,356 @@
   </footer>
 
 <script>
-    // ==========================================
-    // 1. KONFIGURASI UTAMA & KREDENSIAL SUPABASE
-    // ==========================================
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbzD785Sjz78xpbOKDu2BR757Dp9XhReLJ1Tih2EEGfcKaNkPE90771kwQwykh_xoiVz/exec";
-    const SUPABASE_URL = "https://tdmcatsgixnvgkmxuzqt.supabase.co";
-    const BUCKET_NAME = "Folder_Foto";
-    const SUPABASE_STORAGE_BASE = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/`;
+  // ==========================================
+  // 1. KONFIGURASI UTAMA & KREDENSIAL SUPABASE
+  // ==========================================
+  const GAS_URL = "https://script.google.com/macros/s/AKfycbzD785Sjz78xpbOKDu2BR757Dp9XhReLJ1Tih2EEGfcKaNkPE90771kwQwykh_xoiVz/exec";
+  const SUPABASE_URL = "https://tdmcatsgixnvgkmxuzqt.supabase.co";
+  const BUCKET_NAME = "Folder_Foto";
+  const SUPABASE_STORAGE_BASE = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/`;
 
-    // ==========================================
-    // 2. VARIABEL GLOBAL APLIKASI
-    // ==========================================
-    let rawDataPemeriksa = [];
-    let filteredData = [];
-    let currentPage = 1;
-    const itemsPerPage = 10;
+  // ==========================================
+  // 2. VARIABEL GLOBAL APLIKASI
+  // ==========================================
+  let rawDataPemeriksa = [];
+  let filteredData = [];
+  let currentPage = 1;
+  const itemsPerPage = 10;
 
-    // Variabel Pendukung Fitur Zoom & Pan Modal Foto
-    let scale = 1;
-    let pointX = 0;
-    let pointY = 0;
-    let startX = 0;
-    let startY = 0;
-    let isDragging = false;
-    let currentBlobUrl = null;
+  // Variabel Pendukung Fitur Zoom & Pan Modal Foto
+  let scale = 1;
+  let pointX = 0;
+  let pointY = 0;
+  let startX = 0;
+  let startY = 0;
+  let isDragging = false;
+  let currentBlobUrl = null;
 
-    // ==========================================
-    // 3. FUNGSI UTAMA SAAT HALAMAN DIMUAT
-    // ==========================================
-    window.onload = function() {
-      tampilkanTanggalTerkini();
-      document.getElementById('copyrightYear').innerText = new Date().getFullYear();
-      loadStats();
-      loadDataPemeriksa();
-      initZoomAndPan();
-    };
+  // ==========================================
+  // 3. FUNGSI UTAMA SAAT HALAMAN DIMUAT
+  // ==========================================
+  window.onload = function() {
+    tampilkanTanggalTerkini();
+    document.getElementById('copyrightYear').innerText = new Date().getFullYear();
+    loadStats();
+    loadDataPemeriksa();
+    initZoomAndPan();
+  };
 
-    function tampilkanTanggalTerkini() {
-      const opsi = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-      document.getElementById('tanggalHariIni').innerText = new Date().toLocaleDateString('id-ID', opsi);
+  function tampilkanTanggalTerkini() {
+    const opsi = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    document.getElementById('tanggalHariIni').innerText = new Date().toLocaleDateString('id-ID', opsi);
+  }
+
+  // ==========================================
+  // 4. MEMUAT DATA STATISTIK & TABEL
+  // ==========================================
+  function loadStats() {
+    fetch(`${GAS_URL}?action=getStats`)
+      .then(response => response.json())
+      .then(stats => {
+        if (stats) {
+          document.getElementById('statTotal').innerText = stats.total || 0;
+          document.getElementById('statKerbau').innerText = stats.kerbau || 0;
+          document.getElementById('statSapi').innerText = stats.sapi || 0;
+          document.getElementById('statKuda').innerText = stats.kuda || 0;
+          document.getElementById('statsLoading').classList.add('hidden-custom');
+          document.getElementById('statsGrid').classList.remove('hidden-custom');
+        }
+      })
+      .catch(err => {
+        console.error("Gagal memuat statistik:", err);
+        document.getElementById('statsLoading').innerText = "Gagal memuat statistik.";
+      });
+  }
+
+  function loadDataPemeriksa() {
+    document.getElementById('tabelLoading').classList.remove('hidden-custom');
+    document.getElementById('tabelContainer').classList.add('hidden-custom');
+    document.getElementById('paginationContainer').classList.add('hidden-custom');
+    document.getElementById('emptyDataText').classList.add('hidden-custom');
+
+    fetch(`${GAS_URL}?action=getData`)
+      .then(response => response.json())
+      .then(data => {
+        rawDataPemeriksa = Array.isArray(data) ? data : (data.data || []);
+        filteredData = rawDataPemeriksa;
+        currentPage = 1;
+        renderTabelPemeriksa();
+      })
+      .catch(err => {
+        document.getElementById('tabelLoading').classList.add('hidden-custom');
+        document.getElementById('emptyDataText').classList.remove('hidden-custom');
+        console.error("Gagal memuat data tabel:", err);
+      });
+  }
+
+  // ==========================================
+  // 5. VALIDASI & PENGOLAHAN URL FOTO
+  // ==========================================
+  function getFotoPathFromItem(item) {
+    if (!item) return "";
+    return item.Link_FotoKKMT || item.link_fotokkmt || item.fotoFileName || item.fileUrl || "";
+  }
+
+  function isValidPhotoUrl(rawPath) {
+    if (!rawPath || typeof rawPath !== 'string') return false;
+    const cleanPath = rawPath.trim().toLowerCase();
+    
+    const validExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.pdf'];
+    return validExtensions.some(ext => cleanPath.endsWith(ext) || cleanPath.includes(ext + '?'));
+  }
+
+  function resolveImageUrl(rawUrl) {
+    if (!rawUrl) return "";
+    let cleaned = String(rawUrl).trim();
+    
+    if (cleaned.startsWith('http://') || cleaned.startsWith('https://') || cleaned.startsWith('blob:')) {
+      return cleaned;
     }
 
-    // ==========================================
-    // 4. MEMUAT DATA STATISTIK & TABEL
-    // ==========================================
-    function loadStats() {
-      fetch(`${GAS_URL}?action=getStats`)
-        .then(response => response.json())
-        .then(stats => {
-          if (stats) {
-            document.getElementById('statTotal').innerText = stats.total || 0;
-            document.getElementById('statKerbau').innerText = stats.kerbau || 0;
-            document.getElementById('statSapi').innerText = stats.sapi || 0;
-            document.getElementById('statKuda').innerText = stats.kuda || 0;
-            document.getElementById('statsLoading').classList.add('hidden-custom');
-            document.getElementById('statsGrid').classList.remove('hidden-custom');
-          }
-        })
-        .catch(err => {
-          console.error("Gagal memuat statistik:", err);
-          document.getElementById('statsLoading').innerText = "Gagal memuat statistik.";
-        });
+    cleaned = cleaned.replace(/^\/+/, '');
+
+    if (cleaned.includes('/')) {
+      const parts = cleaned.split('/');
+      cleaned = parts[parts.length - 1];
     }
 
-    function loadDataPemeriksa() {
-      document.getElementById('tabelLoading').classList.remove('hidden-custom');
+    try {
+      cleaned = decodeURIComponent(cleaned);
+    } catch (e) {
+      // abaikan
+    }
+
+    return SUPABASE_STORAGE_BASE + encodeURI(cleaned);
+  }
+
+  // ==========================================
+  // 6. RENDER TABEL & PAGINASI
+  // ==========================================
+  function renderTabelPemeriksa() {
+    document.getElementById('tabelLoading').classList.add('hidden-custom');
+    const tbody = document.getElementById('tabelBody');
+    tbody.innerHTML = "";
+
+    if (filteredData.length === 0) {
       document.getElementById('tabelContainer').classList.add('hidden-custom');
       document.getElementById('paginationContainer').classList.add('hidden-custom');
-      document.getElementById('emptyDataText').classList.add('hidden-custom');
-
-      fetch(`${GAS_URL}?action=getData`)
-        .then(response => response.json())
-        .then(data => {
-          rawDataPemeriksa = Array.isArray(data) ? data : (data.data || []);
-          filteredData = rawDataPemeriksa;
-          currentPage = 1;
-          renderTabelPemeriksa();
-        })
-        .catch(err => {
-          document.getElementById('tabelLoading').classList.add('hidden-custom');
-          document.getElementById('emptyDataText').classList.remove('hidden-custom');
-          console.error("Gagal memuat data tabel:", err);
-        });
+      document.getElementById('emptyDataText').classList.remove('hidden-custom');
+      document.getElementById('dataCount').innerText = 0;
+      return;
     }
 
-    // ==========================================
-    // 5. VALIDASI & PENGOLAHAN URL FOTO
-    // ==========================================
-    function getFotoPathFromItem(item) {
-      if (!item) return "";
-      return item.Link_FotoKKMT || item.link_fotokkmt || item.fotoFileName || item.fileUrl || "";
+    document.getElementById('emptyDataText').classList.add('hidden-custom');
+
+    const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const pageData = filteredData.slice(startIndex, startIndex + itemsPerPage);
+
+    document.getElementById('dataCount').innerText = filteredData.length;
+    document.getElementById('tabelContainer').classList.remove('hidden-custom');
+
+    pageData.forEach(function(item, index) {
+      const tr = document.createElement('tr');
+      tr.className = "hover:bg-blue-50/50 transition";
+
+      const nomorUrut = startIndex + index + 1;
+      const fotoPath = getFotoPathFromItem(item);
+      const isPhotoValid = isValidPhotoUrl(fotoPath);
+
+      const fotoBtn = isPhotoValid 
+        ? `<button onclick="openSecurePhotoModal('${encodeURIComponent(fotoPath)}')" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 active:bg-blue-100 whitespace-nowrap cursor-pointer"><i class="fa-solid fa-image"></i> Lihat Foto</button>`
+        : `<span class="text-gray-400 font-medium whitespace-nowrap">Tidak ada foto</span>`;
+
+      tr.innerHTML = `
+        <td class="py-3 px-3 font-semibold text-gray-500">${nomorUrut}</td>
+        <td class="py-3 px-3 font-bold text-gray-900 whitespace-nowrap">${item.nomorKkmt}</td>
+        <td class="py-3 px-3 font-semibold text-blue-700 whitespace-nowrap">${item.jenisTernak}</td>
+        <td class="py-3 px-3 whitespace-nowrap">${item.jenisKelamin}</td>
+        <td class="py-3 px-3 min-w-[140px] font-bold text-gray-800">${item.namaPemilik}</td>
+        <td class="py-3 px-3 whitespace-nowrap">${item.asalTernak}</td>
+        <td class="py-3 px-3 whitespace-nowrap">${item.namaPengantar}</td>
+        <td class="py-3 px-3 text-center">${fotoBtn}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    if (totalPages > 1) {
+      document.getElementById('paginationContainer').classList.remove('hidden-custom');
+      document.getElementById('pageIndicator').innerText = `Halaman ${currentPage} dari ${totalPages}`;
+      
+      const isFirstPage = currentPage === 1;
+      const isLastPage = currentPage === totalPages;
+
+      document.getElementById('btnFirst').disabled = isFirstPage;
+      document.getElementById('btnPrev').disabled = isFirstPage;
+      document.getElementById('btnNext').disabled = isLastPage;
+      document.getElementById('btnLast').disabled = isLastPage;
+    } else {
+      document.getElementById('paginationContainer').classList.add('hidden-custom');
     }
+  }
 
-    function isValidPhotoUrl(rawPath) {
-      if (!rawPath || typeof rawPath !== 'string') return false;
-      const cleanPath = rawPath.trim().toLowerCase();
-       
-      const validExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.pdf'];
-      return validExtensions.some(ext => cleanPath.endsWith(ext) || cleanPath.includes(ext + '?'));
-    }
+  function changePage(direction) {
+    currentPage += direction;
+    renderTabelPemeriksa();
+  }
 
-    function resolveImageUrl(rawUrl) {
-      if (!rawUrl) return "";
-      let cleaned = String(rawUrl).trim();
-       
-      // Jika sudah berupa URL utuh
-      if (cleaned.startsWith('http://') || cleaned.startsWith('https://') || cleaned.startsWith('blob:')) {
-        return cleaned;
-      }
+  function goToPage(page) {
+    currentPage = page;
+    renderTabelPemeriksa();
+  }
 
-      // Bersihkan slash di awal
-      cleaned = cleaned.replace(/^\/+/, '');
+  function goToLastPage() {
+    const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+    currentPage = totalPages;
+    renderTabelPemeriksa();
+  }
 
-      // Ambil nama file murninya saja jika ada struktur folder
-      if (cleaned.includes('/')) {
-        const parts = cleaned.split('/');
-        cleaned = parts[parts.length - 1];
-      }
-
-      // Decode untuk menghindari double encoding
-      try {
-        cleaned = decodeURIComponent(cleaned);
-      } catch (e) {
-        // abaikan
-      }
-
-      return SUPABASE_STORAGE_BASE + encodeURI(cleaned);
-    }
-
-    // ==========================================
-    // 6. RENDER TABEL & PAGINASI
-    // ==========================================
-    function renderTabelPemeriksa() {
-      document.getElementById('tabelLoading').classList.add('hidden-custom');
-      const tbody = document.getElementById('tabelBody');
-      tbody.innerHTML = "";
-
-      if (filteredData.length === 0) {
-        document.getElementById('tabelContainer').classList.add('hidden-custom');
-        document.getElementById('paginationContainer').classList.add('hidden-custom');
-        document.getElementById('emptyDataText').classList.remove('hidden-custom');
-        document.getElementById('dataCount').innerText = 0;
-        return;
-      }
-
-      document.getElementById('emptyDataText').classList.add('hidden-custom');
-
-      const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-      if (currentPage > totalPages) currentPage = totalPages;
-      if (currentPage < 1) currentPage = 1;
-
-      const startIndex = (currentPage - 1) * itemsPerPage;
-      const pageData = filteredData.slice(startIndex, startIndex + itemsPerPage);
-
-      document.getElementById('dataCount').innerText = filteredData.length;
-      document.getElementById('tabelContainer').classList.remove('hidden-custom');
-
-      pageData.forEach(function(item, index) {
-        const tr = document.createElement('tr');
-        tr.className = "hover:bg-blue-50/50 transition";
-
-        const nomorUrut = startIndex + index + 1;
-        const fotoPath = getFotoPathFromItem(item);
-        const isPhotoValid = isValidPhotoUrl(fotoPath);
-
-        // Render tombol foto atau keterangan "Tidak ada foto" secara dinamis
-        const fotoBtn = isPhotoValid 
-          ? `<button onclick="openSecurePhotoModal('${encodeURIComponent(fotoPath)}')" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 active:bg-blue-100 whitespace-nowrap cursor-pointer"><i class="fa-solid fa-image"></i> Lihat Foto</button>`
-          : `<span class="text-gray-400 font-medium whitespace-nowrap">Tidak ada foto</span>`;
-
-        tr.innerHTML = `
-          <td class="py-3 px-3 font-semibold text-gray-500">${nomorUrut}</td>
-          <td class="py-3 px-3 font-bold text-gray-900 whitespace-nowrap">${item.nomorKkmt}</td>
-          <td class="py-3 px-3 font-semibold text-blue-700 whitespace-nowrap">${item.jenisTernak}</td>
-          <td class="py-3 px-3 whitespace-nowrap">${item.jenisKelamin}</td>
-          <td class="py-3 px-3 min-w-[140px] font-bold text-gray-800">${item.namaPemilik}</td>
-          <td class="py-3 px-3 whitespace-nowrap">${item.asalTernak}</td>
-          <td class="py-3 px-3 whitespace-nowrap">${item.namaPengantar}</td>
-          <td class="py-3 px-3 text-center">${fotoBtn}</td>
-        `;
-        tbody.appendChild(tr);
+  function filterTabel() {
+    const q = document.getElementById('searchInput').value.toLowerCase().trim();
+    if (!q) {
+      filteredData = rawDataPemeriksa;
+    } else {
+      filteredData = rawDataPemeriksa.filter(function(item) {
+        return item.namaPemilik.toLowerCase().includes(q) ||
+               item.nomorKkmt.toLowerCase().includes(q) ||
+               item.asalTernak.toLowerCase().includes(q) ||
+               item.namaPengantar.toLowerCase().includes(q);
       });
+    }
+    currentPage = 1;
+    renderTabelPemeriksa();
+  }
 
-      if (totalPages > 1) {
-        document.getElementById('paginationContainer').classList.remove('hidden-custom');
-        document.getElementById('pageIndicator').innerText = `Halaman ${currentPage} dari ${totalPages}`;
-          
-        const isFirstPage = currentPage === 1;
-        const isLastPage = currentPage === totalPages;
+  // ==========================================
+  // 7. MODAL FOTO, ZOOM, & PAN INTERACTION
+  // ==========================================
+  async function openSecurePhotoModal(encodedUrl) {
+    const decodedRawUrl = decodeURIComponent(encodedUrl);
+    const realUrl = resolveImageUrl(decodedRawUrl);
+    
+    const modal = document.getElementById('photoModal');
+    const modalImg = document.getElementById('modalImage');
+    const imgLoading = document.getElementById('imageLoading');
 
-        document.getElementById('btnFirst').disabled = isFirstPage;
-        document.getElementById('btnPrev').disabled = isFirstPage;
-        document.getElementById('btnNext').disabled = isLastPage;
-        document.getElementById('btnLast').disabled = isLastPage;
-      } else {
-        document.getElementById('paginationContainer').classList.add('hidden-custom');
-      }
+    modal.classList.remove('hidden-custom');
+    modalImg.classList.add('hidden-custom');
+    imgLoading.classList.remove('hidden-custom');
+    resetZoom();
+
+    if (currentBlobUrl) {
+      URL.revokeObjectURL(currentBlobUrl);
+      currentBlobUrl = null;
     }
 
-    function changePage(direction) {
-      currentPage += direction;
-      renderTabelPemeriksa();
+    modalImg.src = realUrl;
+    
+    modalImg.onload = function() {
+      imgLoading.classList.add('hidden-custom');
+      modalImg.classList.remove('hidden-custom');
+    };
+
+    modalImg.onerror = function() {
+      console.error("Gagal memuat gambar dari URL:", realUrl);
+      imgLoading.innerText = "Gagal memuat gambar. Pastikan file ada di Folder Foto.";
+    };
+  }
+
+  function closePhotoModal() {
+    const modal = document.getElementById('photoModal');
+    const modalImg = document.getElementById('modalImage');
+    
+    modal.classList.add('hidden-custom');
+    modalImg.src = "";
+
+    if (currentBlobUrl) {
+      URL.revokeObjectURL(currentBlobUrl);
+      currentBlobUrl = null;
     }
+  }
 
-    function goToPage(page) {
-      currentPage = page;
-      renderTabelPemeriksa();
-    }
+  function updateImageTransform() {
+    const img = document.getElementById('modalImage');
+    img.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
+  }
 
-    function goToLastPage() {
-      const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-      currentPage = totalPages;
-      renderTabelPemeriksa();
-    }
+  function resetZoom() {
+    scale = 1;
+    pointX = 0;
+    pointY = 0;
+    updateImageTransform();
+  }
 
-    function filterTabel() {
-      const q = document.getElementById('searchInput').value.toLowerCase().trim();
-      if (!q) {
-        filteredData = rawDataPemeriksa;
-      } else {
-        filteredData = rawDataPemeriksa.filter(function(item) {
-          return item.namaPemilik.toLowerCase().includes(q) ||
-                 item.nomorKkmt.toLowerCase().includes(q) ||
-                 item.asalTernak.toLowerCase().includes(q) ||
-                 item.namaPengantar.toLowerCase().includes(q);
-        });
-      }
-      currentPage = 1;
-      renderTabelPemeriksa();
-    }
+  function zoomIn() {
+    scale = Math.min(scale + 0.75, 5);
+    updateImageTransform();
+  }
 
-    // ==========================================
-    // 7. MODAL FOTO, ZOOM, & PAN INTERACTION
-    // ==========================================
-    async function openSecurePhotoModal(encodedUrl) {
-      const decodedRawUrl = decodeURIComponent(encodedUrl);
-      const realUrl = resolveImageUrl(decodedRawUrl);
-       
-      const modal = document.getElementById('photoModal');
-      const modalImg = document.getElementById('modalImage');
-      const imgLoading = document.getElementById('imageLoading');
-
-      modal.classList.remove('hidden-custom');
-      modalImg.classList.add('hidden-custom');
-      imgLoading.classList.remove('hidden-custom');
-      resetZoom();
-
-      if (currentBlobUrl) {
-        URL.revokeObjectURL(currentBlobUrl);
-        currentBlobUrl = null;
-      }
-
-      modalImg.src = realUrl;
-       
-      modalImg.onload = function() {
-        imgLoading.classList.add('hidden-custom');
-        modalImg.classList.remove('hidden-custom');
-      };
-
-      modalImg.onerror = function() {
-        console.error("Gagal memuat gambar dari URL:", realUrl);
-        imgLoading.innerText = "Gagal memuat gambar. Pastikan file ada di Folder Foto.";
-      };
-    }
-
-    function closePhotoModal() {
-      const modal = document.getElementById('photoModal');
-      const modalImg = document.getElementById('modalImage');
-       
-      modal.classList.add('hidden-custom');
-      modalImg.src = "";
-
-      if (currentBlobUrl) {
-        URL.revokeObjectURL(currentBlobUrl);
-        currentBlobUrl = null;
-      }
-    }
-
-    function updateImageTransform() {
-      const img = document.getElementById('modalImage');
-      img.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
-    }
-
-    function resetZoom() {
-      scale = 1;
+  function zoomOut() {
+    scale = Math.max(scale - 0.75, 1);
+    if (scale === 1) {
       pointX = 0;
       pointY = 0;
-      updateImageTransform();
     }
+    updateImageTransform();
+  }
 
-    function zoomIn() {
-      scale = Math.min(scale + 0.5, 4);
-      updateImageTransform();
-    }
+  function initZoomAndPan() {
+    const container = document.getElementById('modalImageContainer');
+    const img = document.getElementById('modalImage');
 
-    function zoomOut() {
-      scale = Math.max(scale - 0.5, 1);
+    img.addEventListener('dblclick', function(e) {
+      e.preventDefault();
       if (scale === 1) {
-        pointX = 0;
-        pointY = 0;
+        scale = 2.5;
+      } else {
+        resetZoom();
       }
       updateImageTransform();
-    }
+    });
 
-    function initZoomAndPan() {
-      const container = document.getElementById('modalImageContainer');
-      const img = document.getElementById('modalImage');
+    container.addEventListener('mousedown', function(e) {
+      if (scale > 1) {
+        isDragging = true;
+        startX = e.clientX - pointX;
+        startY = e.clientY - pointY;
+      }
+    });
 
-      img.addEventListener('dblclick', function(e) {
-        e.preventDefault();
-        if (scale === 1) {
-          scale = 2.5;
-        } else {
-          resetZoom();
-        }
-        updateImageTransform();
-      });
+    window.addEventListener('mousemove', function(e) {
+      if (!isDragging) return;
+      pointX = e.clientX - startX;
+      pointY = e.clientY - startY;
+      updateImageTransform();
+    });
 
-      container.addEventListener('mousedown', function(e) {
-        if (scale > 1) {
-          isDragging = true;
-          startX = e.clientX - pointX;
-          startY = e.clientY - pointY;
-        }
-      });
+    window.addEventListener('mouseup', function() {
+      isDragging = false;
+    });
 
-      window.addEventListener('mousemove', function(e) {
-        if (!isDragging) return;
-        pointX = e.clientX - startX;
-        pointY = e.clientY - startY;
-        updateImageTransform();
-      });
+    container.addEventListener('touchstart', function(e) {
+      if (scale > 1 && e.touches.length === 1) {
+        isDragging = true;
+        startX = e.touches[0].clientX - pointX;
+        startY = e.touches[0].clientY - pointY;
+      }
+    }, { passive: true });
 
-      window.addEventListener('mouseup', function() {
-        isDragging = false;
-      });
+    window.addEventListener('touchmove', function(e) {
+      if (!isDragging || e.touches.length !== 1) return;
+      pointX = e.touches[0].clientX - startX;
+      pointY = e.touches[0].clientY - startY;
+      updateImageTransform();
+    }, { passive: true });
 
-      container.addEventListener('touchstart', function(e) {
-        if (scale > 1 && e.touches.length === 1) {
-          isDragging = true;
-          startX = e.touches[0].clientX - pointX;
-          startY = e.touches[0].clientY - pointY;
-        }
-      });
-
-      window.addEventListener('touchmove', function(e) {
-        if (!isDragging || e.touches.length !== 1) return;
-        pointX = e.touches[0].clientX - startX;
-        pointY = e.touches[0].clientY - startY;
-        updateImageTransform();
-      });
-
-      window.addEventListener('touchend', function() {
-        isDragging = false;
-      });
-    }
-  </script>
+    window.addEventListener('touchend', function() {
+      isDragging = false;
+    });
+  }
+</script>
 </body>
 </html>
