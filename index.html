@@ -33,16 +33,24 @@
     }
     .overflow-x-auto::-webkit-scrollbar { height: 4px; }
     .overflow-x-auto::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-    
-    /* Styling Modal Zoom & Pan Foto */
+     
+    /* Perbaikan Styling Modal agar responsif dan tidak terpotong */
     #photoModal {
       transition: opacity 0.3s ease;
-    }
+      /* Memastikan modal berada di tengah dan mendukung scroll jika layar terlalu kecil */
+      overflow-y: auto;
+   }
+   #photoModal > div {
+     max-height: 90vh;
+     display: flex;
+     flex-direction: column;
+   }
     #modalImageContainer {
       overflow: hidden;
       cursor: grab;
       touch-action: none;
-    }
+      position: relative;
+   }
     #modalImageContainer:active {
       cursor: grabbing;
     }
@@ -50,7 +58,18 @@
       transform-origin: center center;
       transition: transform 0.1s ease-out;
       user-select: none;
-    }
+   }
+   
+   /* Responsif tambahan untuk perangkat mobile kecil */
+   @media (max-width: 640px) {
+     #photoModal {
+       padding: 0.75rem;
+     }
+     #photoModal > div {
+       max-height: 95vh;
+       width: 100%;
+     }
+   }
   </style>
 </head>
 <body class="min-h-screen flex flex-col items-center justify-between p-3 sm:p-4 md:p-6 antialiased">
@@ -179,22 +198,22 @@
   <div id="photoModal" class="hidden-custom fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
       <!-- Header Modal -->
-      <div class="px-4 py-3 bg-gray-100 flex items-center justify-between border-b border-gray-200">
+      <div class="px-4 py-3 bg-gray-100 flex items-center justify-between border-b border-gray-200 shrink-0">
         <h3 class="text-xs sm:text-sm font-bold text-gray-800 flex items-center gap-2">
           <i class="fa-solid fa-image text-blue-600"></i> Pratinjau Foto & Dokumen Ternak
         </h3>
-        <button onclick="closePhotoModal()" class="text-gray-500 hover:text-red-600 text-sm font-bold p-1 transition">
+        <button onclick="closePhotoModal()" class="text-gray-500 hover:text-red-600 text-sm font-bold p-1 transition cursor-pointer">
           <i class="fa-solid fa-xmark text-lg"></i>
         </button>
       </div>
-      
+       
       <!-- Body Modal (Container Zoom & Pan) -->
-      <div id="modalImageContainer" class="relative flex-1 bg-gray-900 flex items-center justify-center p-4 min-h-[350px] sm:min-h-[450px]">
+      <div id="modalImageContainer" class="relative flex-1 bg-gray-900 flex items-center justify-center p-4 min-h-[300px] sm:min-h-[400px]">
         <div id="imageLoading" class="absolute text-white text-xs flex items-center gap-2">
           <i class="fa-solid fa-circle-notch fa-spin text-blue-400"></i> Memuat gambar aman...
         </div>
-        <img id="modalImage" src="" alt="Pratinjau" class="max-h-[60vh] max-w-full object-contain rounded-lg shadow-md hidden-custom">
-        
+        <img id="modalImage" src="" alt="Pratinjau" class="max-h-[55vh] max-w-full object-contain rounded-lg shadow-md hidden-custom">
+         
         <!-- Tooltip Panduan -->
         <div class="absolute bottom-3 left-1/2 transform -translate-x-1/2 bg-black/60 backdrop-blur-md text-white text-[10px] sm:text-xs px-3 py-1.5 rounded-full pointer-events-none flex items-center gap-2">
           <span><i class="fa-solid fa-computer-mouse"></i> Klik 2x untuk Perbesar/Perkecil</span>
@@ -204,7 +223,7 @@
       </div>
 
       <!-- Footer Modal (Kontrol Zoom) -->
-      <div class="px-4 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-center text-xs">
+      <div class="px-4 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-center text-xs shrink-0">
         <div class="flex items-center gap-2">
           <button onclick="zoomIn()" class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 font-semibold px-3 py-1.5 rounded-lg shadow-sm transition">
             <i class="fa-solid fa-magnifying-glass-plus"></i> Zoom In
@@ -320,7 +339,7 @@
     function isValidPhotoUrl(rawPath) {
       if (!rawPath || typeof rawPath !== 'string') return false;
       const cleanPath = rawPath.trim().toLowerCase();
-      
+       
       const validExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.pdf'];
       return validExtensions.some(ext => cleanPath.endsWith(ext) || cleanPath.includes(ext + '?'));
     }
@@ -328,7 +347,7 @@
     function resolveImageUrl(rawUrl) {
       if (!rawUrl) return "";
       let cleaned = String(rawUrl).trim();
-      
+       
       // Jika sudah berupa URL utuh
       if (cleaned.startsWith('http://') || cleaned.startsWith('https://') || cleaned.startsWith('blob:')) {
         return cleaned;
@@ -461,7 +480,7 @@
     async function openSecurePhotoModal(encodedUrl) {
       const decodedRawUrl = decodeURIComponent(encodedUrl);
       const realUrl = resolveImageUrl(decodedRawUrl);
-      
+       
       const modal = document.getElementById('photoModal');
       const modalImg = document.getElementById('modalImage');
       const imgLoading = document.getElementById('imageLoading');
@@ -477,7 +496,7 @@
       }
 
       modalImg.src = realUrl;
-      
+       
       modalImg.onload = function() {
         imgLoading.classList.add('hidden-custom');
         modalImg.classList.remove('hidden-custom');
@@ -492,7 +511,7 @@
     function closePhotoModal() {
       const modal = document.getElementById('photoModal');
       const modalImg = document.getElementById('modalImage');
-      
+       
       modal.classList.add('hidden-custom');
       modalImg.src = "";
 
