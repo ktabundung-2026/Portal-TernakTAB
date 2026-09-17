@@ -277,6 +277,7 @@
       const { data, error } = await _supabase
         .from('database_ternak_tab')
         .select('*')
+        .order('No', { ascending: false });
       if (error) throw error;
 
       // Format data agar sesuai dengan variabel template Anda di bawah
