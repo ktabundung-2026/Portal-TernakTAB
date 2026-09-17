@@ -17,6 +17,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   
   <style>
     body {
@@ -217,13 +218,16 @@
   <footer class="w-full text-center py-4 border-t border-gray-200/60 mt-auto">
     <p class="text-xs font-medium text-gray-500">&copy; <span id="copyrightYear"></span> Kecamatan Tabundung - aRL</p>
   </footer>
-
 <script>
-  // Sesuaikan URL GAS Anda jika diperlukan
-  const GAS_URL = "https://script.google.com/macros/s/AKfycbzD785Sjz78xpbOKDu2BR757Dp9XhReLJ1Tih2EEGfcKaNkPE90771kwQwykh_xoiVz/exec";
+  // Inisialisasi Klien Supabase Langsung di Frontend
   const SUPABASE_URL = "https://tdmcatsgixnvgkmxuzqt.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkbWNhdHNnaXhudmdrbXh1enF0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0NDU3MzMsImV4cCI6MjEwNDAyMTczM30.0Ijm8f4iu7uiUAhd1597vc9ptTponxW5U2CRfjCjbZE"; // <-- Masukkan API Anon Key Anda dari dashboard Supabase
   const BUCKET_NAME = "Folder_Foto";
   const SUPABASE_STORAGE_BASE = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/`;
+
+  // Buat instance supabase
+  const { createClient } = supabase;
+  const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   let rawDataPemeriksa = [];
   let filteredData = [];
@@ -245,13 +249,12 @@
       try {
         const parsed = JSON.parse(cachedData);
         processLoadedData(parsed);
-        // Tetap lakukan background sync data terbaru secara senyap
-        loadDataFromServer(false);
+        loadDataFromSupabase(false); // Background sync senyap
       } catch(e) {
-        loadDataFromServer(true);
+        loadDataFromSupabase(true);
       }
     } else {
-      loadDataFromServer(true);
+      loadDataFromSupabase(true);
     }
 
     initZoomAndPan();
@@ -262,29 +265,65 @@
     document.getElementById('tanggalHariIni').innerText = new Date().toLocaleDateString('id-ID', opsi);
   }
 
-  // Menggunakan Single Fetch untuk statistik & data tabel sekaligus
-  function loadDataFromServer(showLoading) {
+  // Mengambil data langsung dari Supabase secara kilat (Tanpa GAS)
+  async function loadDataFromSupabase(showLoading) {
     if (showLoading) {
       document.getElementById('tabelLoading').classList.remove('hidden-custom');
       document.getElementById('statsLoading').classList.remove('hidden-custom');
     }
 
-    fetch(`${GAS_URL}?action=getInitData`)
-      .then(res => res.json())
-      .then(res => {
-        if (res.success) {
-          localStorage.setItem('portal_ternak_cache', JSON.stringify(res));
-          localStorage.setItem('portal_ternak_time', new Date().getTime());
-          processLoadedData(res);
-        }
-      })
-      .catch(err => {
-        console.error("Gagal menyinkronkan data:", err);
-        if (showLoading) {
-          document.getElementById('tabelLoading').classList.add('hidden-custom');
-          document.getElementById('emptyDataText').classList.remove('hidden-custom');
-        }
+    try {
+      // Ambil data tabel secara paralel dengan urutan terbaru
+      const { data, error } = await _supabase
+        .from('database_ternak_tab')
+        .select('*')
+        .order('created_at', { ascending: false }); // Sesuaikan jika ada kolom timestamp, atau hapus baris order jika tidak ada
+
+      if (error) throw error;
+
+      // Format data agar sesuai dengan variabel template Anda di bawah
+      const formattedData = (data || []).map(item => ({
+        nomorKkmt: item.Nomor_KKMT || item.nomorKkmt || '-',
+        jenisTernak: item.Jenis_Ternak || item.jenisTernak || '-',
+        jenisKelamin: item.Jenis_Kelamin || item.jenisKelamin || '-',
+        namaPemilik: item.Nama_Pemilik || item.namaPemilik || '-',
+        asalTernak: item.Asal_Ternak || item.asalTernak || '-',
+        namaPengantar: item.Nama_Pengantar || item.namaPengantar || '-',
+        Link_FotoKKMT: item.Link_FotoKKMT || item.link_fotokkmt || ''
+      }));
+
+      // Hitung statistik secara instan di klien
+      let countKerbau = 0, countSapi = 0, countKuda = 0;
+      formattedData.forEach(item => {
+        const j = item.jenisTernak.toLowerCase();
+        if (j.includes('kerbau')) countKerbau++;
+        else if (j.includes('sapi')) countSapi++;
+        else if (j.includes('kuda')) countKuda++;
       });
+
+      const payload = {
+        success: true,
+        stats: {
+          total: formattedData.length,
+          kerbau: countKerbau,
+          sapi: countSapi,
+          kuda: countKuda
+        },
+        data: formattedData
+      };
+
+      localStorage.setItem('portal_ternak_cache', JSON.stringify(payload));
+      localStorage.setItem('portal_ternak_time', new Date().getTime());
+      
+      processLoadedData(payload);
+
+    } catch (err) {
+      console.error("Gagal menyinkronkan data Supabase:", err);
+      if (showLoading) {
+        document.getElementById('tabelLoading').classList.add('hidden-custom');
+        document.getElementById('emptyDataText').classList.remove('hidden-custom');
+      }
+    }
   }
 
   function refreshData(force) {
@@ -292,7 +331,7 @@
       localStorage.removeItem('portal_ternak_cache');
       localStorage.removeItem('portal_ternak_time');
     }
-    loadDataFromServer(true);
+    loadDataFromSupabase(true);
   }
 
   function processLoadedData(res) {
@@ -313,7 +352,7 @@
 
   function getFotoPathFromItem(item) {
     if (!item) return "";
-    return item.Link_FotoKKMT || item.link_fotokkmt || "";
+    return item.Link_FotoKKMT || "";
   }
 
   function isValidPhotoUrl(rawPath) {
@@ -484,6 +523,7 @@
     }, { passive: true });
     window.addEventListener('touchend', () => { isDragging = false; });
   }
+</script>
 </script>
 </body>
 </html>
