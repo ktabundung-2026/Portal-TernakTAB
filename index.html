@@ -220,306 +220,317 @@
   </footer>
 
   <script>
-    const SUPABASE_URL = "https://tdmcatsgixnvgkmxuzqt.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkbWNhdHNnaXhudmdrbXh1enF0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0NDU3MzMsImV4cCI6MjEwNDAyMTczM30.0Ijm8f4iu7uiUAhd1597vc9ptTponxW5U2CRfjCjbZE";
-    const BUCKET_NAME = "Folder_Foto";
-    const SUPABASE_STORAGE_BASE = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/`;
+  const SUPABASE_URL = "https://tdmcatsgixnvgkmxuzqt.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkbWNhdHNnaXhudmdrbXh1enF0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0NDU3MzMsImV4cCI6MjEwNDAyMTczM30.0Ijm8f4iu7uiUAhd1597vc9ptTponxW5U2CRfjCjbZE";
+  const BUCKET_NAME = "Folder_Foto";
+  const SUPABASE_STORAGE_BASE = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/`;
 
-    const { createClient } = supabase;
-    const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const { createClient } = supabase;
+  const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    let rawDataPemeriksa = [];
-    let filteredData = [];
-    let currentPage = 1;
-    const itemsPerPage = 10;
+  let rawDataPemeriksa = [];
+  let filteredData = [];
+  let currentPage = 1;
+  const itemsPerPage = 10;
 
-    let scale = 1, pointX = 0, pointY = 0, startX = 0, startY = 0, isDragging = false;
+  let scale = 1, pointX = 0, pointY = 0, startX = 0, startY = 0, isDragging = false;
 
-    window.onload = function() {
-      tampilkanTanggalTerkini();
-      document.getElementById('copyrightYear').innerText = new Date().getFullYear();
-      
-      const cachedData = localStorage.getItem('portal_ternak_cache');
-      const cachedTime = localStorage.getItem('portal_ternak_time');
-      const now = new Date().getTime();
+  window.onload = function() {
+    tampilkanTanggalTerkini();
+    document.getElementById('copyrightYear').innerText = new Date().getFullYear();
+    
+    const cachedData = localStorage.getItem('portal_ternak_cache');
+    const cachedTime = localStorage.getItem('portal_ternak_time');
+    const now = new Date().getTime();
 
-      if (cachedData && cachedTime && (now - cachedTime < 300000)) {
-        try {
-          const parsed = JSON.parse(cachedData);
-          processLoadedData(parsed);
-          loadDataFromSupabase(false);
-        } catch(e) {
-          loadDataFromSupabase(true);
-        }
-      } else {
+    if (cachedData && cachedTime && (now - cachedTime < 300000)) {
+      try {
+        const parsed = JSON.parse(cachedData);
+        processLoadedData(parsed);
+        loadDataFromSupabase(false);
+      } catch(e) {
         loadDataFromSupabase(true);
       }
-
-      initZoomAndPan();
-    };
-
-    function tampilkanTanggalTerkini() {
-      const opsi = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-      document.getElementById('tanggalHariIni').innerText = new Date().toLocaleDateString('id-ID', opsi);
-    }
-
-    async function loadDataFromSupabase(showLoading) {
-      if (showLoading) {
-        document.getElementById('tabelLoading').classList.remove('hidden-custom');
-        document.getElementById('statsLoading').classList.remove('hidden-custom');
-      }
-
-      try {
-        const { data, error } = await _supabase
-          .from('database_ternak_tab')
-          .select('*', { count: 'exact' })
-          .order('No', { ascending: false })
-          .range(0, 9999);
-
-        if (error) throw error;
-
-        const formattedData = (data || []).map(item => ({
-          nomorKkmt: item.No_KKMT || item.no_kkmt || item.nomorKkmt || '-',
-          jenisTernak: item.Jenis_Ternak || item.jenis_ternak || item.jenisTernak || '-',
-          jenisKelamin: item.Jenis_Kelamin || item.jenis_kelamin || item.jenisKelamin || '-',
-          namaPemilik: item.Nama_Pemilik || item.nama_pemilik || item.namaPemilik || '-',
-          asalTernak: item.Asal_Ternak || item.asal_ternak || item.asalTernak || '-',
-          namaPengantar: item.Nama_Pengantar || item.nama_pengantar || item.namaPengantar || '-',
-          Link_FotoKKMT: item.Link_FotoKKMT || item.link_fotokkmt || item.link_foto_kkmt || ''
-        }));
-
-        let countKerbau = 0, countSapi = 0, countKuda = 0;
-        formattedData.forEach(item => {
-          const j = String(item.jenisTernak).toLowerCase();
-          if (j.includes('kerbau')) countKerbau++;
-          else if (j.includes('sapi')) countSapi++;
-          else if (j.includes('kuda')) countKuda++;
-        });
-
-        const payload = {
-          success: true,
-          stats: {
-            total: formattedData.length,
-            kerbau: countKerbau,
-            sapi: countSapi,
-            kuda: countKuda
-          },
-          data: formattedData
-        };
-
-        localStorage.setItem('portal_ternak_cache', JSON.stringify(payload));
-        localStorage.setItem('portal_ternak_time', new Date().getTime());
-        
-        processLoadedData(payload);
-
-      } catch (err) {
-        console.error("Gagal menyinkronkan data Supabase:", err);
-        if (showLoading) {
-          document.getElementById('tabelLoading').classList.add('hidden-custom');
-          document.getElementById('emptyDataText').classList.remove('hidden-custom');
-        }
-      }
-    }
-
-    function refreshData(force) {
-      if (force) {
-        localStorage.removeItem('portal_ternak_cache');
-        localStorage.removeItem('portal_ternak_time');
-      }
+    } else {
       loadDataFromSupabase(true);
     }
 
-    function processLoadedData(res) {
-      if (res.stats) {
-        document.getElementById('statTotal').innerText = res.stats.total || 0;
-        document.getElementById('statKerbau').innerText = res.stats.kerbau || 0;
-        document.getElementById('statSapi').innerText = res.stats.sapi || 0;
-        document.getElementById('statKuda').innerText = res.stats.kuda || 0;
-        document.getElementById('statsLoading').classList.add('hidden-custom');
-        document.getElementById('statsGrid').classList.remove('hidden-custom');
-      }
+    initZoomAndPan();
+  };
 
-      rawDataPemeriksa = Array.isArray(res.data) ? res.data : [];
-      filteredData = rawDataPemeriksa;
-      currentPage = 1;
-      renderTabelPemeriksa();
+  function tampilkanTanggalTerkini() {
+    const opsi = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    document.getElementById('tanggalHariIni').innerText = new Date().toLocaleDateString('id-ID', opsi);
+  }
+
+  async function loadDataFromSupabase(showLoading) {
+    if (showLoading) {
+      document.getElementById('tabelLoading').classList.remove('hidden-custom');
+      document.getElementById('statsLoading').classList.remove('hidden-custom');
     }
 
-    function getFotoPathFromItem(item) {
-      if (!item) return "";
-      return item.Link_FotoKKMT || "";
-    }
+    try {
+      const { data, error } = await _supabase
+        .from('database_ternak_tab')
+        .select('*', { count: 'exact' })
+        .order('No', { ascending: false })
+        .range(0, 9999);
 
-    function isValidPhotoUrl(rawPath) {
-      if (!rawPath || typeof rawPath !== 'string') return false;
-      const cleanPath = rawPath.trim().toLowerCase();
-      if (cleanPath === "" || cleanPath === "-" || cleanPath === "null" || cleanPath === "undefined") return false;
-      const validExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.pdf'];
-      return validExtensions.some(ext => cleanPath.endsWith(ext) || cleanPath.includes(ext + '?'));
-    }
+      if (error) throw error;
 
-    function resolveImageUrl(rawUrl) {
-      if (!rawUrl) return "";
-      let cleaned = String(rawUrl).trim();
-      if (cleaned.startsWith('http://') || cleaned.startsWith('https://')) return cleaned;
-      cleaned = cleaned.replace(/^\/+/, '');
-      if (cleaned.includes('/')) {
-        const parts = cleaned.split('/');
-        cleaned = parts[parts.length - 1];
-      }
-      return SUPABASE_STORAGE_BASE + encodeURIComponent(cleaned);
-    }
+      const formattedData = (data || []).map(item => ({
+        nomorKkmt: item.No_KKMT || item.no_kkmt || item.nomorKkmt || '-',
+        jenisTernak: item.Jenis_Ternak || item.jenis_ternak || item.jenisTernak || '-',
+        jenisKelamin: item.Jenis_Kelamin || item.jenis_kelamin || item.jenisKelamin || '-',
+        namaPemilik: item.Nama_Pemilik || item.nama_pemilik || item.namaPemilik || '-',
+        asalTernak: item.Asal_Ternak || item.asal_ternak || item.asalTernak || '-',
+        namaPengantar: item.Nama_Pengantar || item.nama_pengantar || item.namaPengantar || '-',
+        Link_FotoKKMT: item.Link_FotoKKMT || item.link_fotokkmt || item.link_foto_kkmt || ''
+      }));
 
-    function renderTabelPemeriksa() {
-      document.getElementById('tabelLoading').classList.add('hidden-custom');
-      const tbody = document.getElementById('tabelBody');
-      tbody.innerHTML = "";
-
-      if (filteredData.length === 0) {
-        document.getElementById('tabelContainer').classList.add('hidden-custom');
-        document.getElementById('paginationContainer').classList.add('hidden-custom');
-        document.getElementById('emptyDataText').classList.remove('hidden-custom');
-        document.getElementById('dataCount').innerText = 0;
-        return;
-      }
-
-      document.getElementById('emptyDataText').classList.add('hidden-custom');
-
-      const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-      if (currentPage > totalPages) currentPage = totalPages;
-      if (currentPage < 1) currentPage = 1;
-
-      const startIndex = (currentPage - 1) * itemsPerPage;
-      const pageData = filteredData.slice(startIndex, startIndex + itemsPerPage);
-
-      document.getElementById('dataCount').innerText = filteredData.length;
-      document.getElementById('tabelContainer').classList.remove('hidden-custom');
-
-      pageData.forEach(function(item, index) {
-        const tr = document.createElement('tr');
-        tr.className = "hover:bg-blue-50/50 transition";
-
-        const nomorUrut = startIndex + index + 1;
-        const fotoPath = getFotoPathFromItem(item);
-        const isPhotoValid = isValidPhotoUrl(fotoPath);
-
-        const fotoBtn = isPhotoValid 
-          ? `<button onclick="openSecurePhotoModal('${encodeURIComponent(fotoPath)}')" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 active:bg-blue-100 whitespace-nowrap cursor-pointer"><i class="fa-solid fa-image"></i> Lihat Foto</button>`
-          : `<span class="text-gray-400 font-medium whitespace-nowrap text-xs">tidak ada foto</span>`;
-
-        tr.innerHTML = `
-          <td class="py-3 px-3 font-semibold text-gray-500">${nomorUrut}</td>
-          <td class="py-3 px-3 font-bold text-gray-900 whitespace-nowrap">${item.nomorKkmt}</td>
-          <td class="py-3 px-3 font-semibold text-blue-700 whitespace-nowrap">${item.jenisTernak}</td>
-          <td class="py-3 px-3 whitespace-nowrap">${item.jenisKelamin}</td>
-          <td class="py-3 px-3 min-w-[140px] font-bold text-gray-800">${item.namaPemilik}</td>
-          <td class="py-3 px-3 whitespace-nowrap">${item.asalTernak}</td>
-          <td class="py-3 px-3 whitespace-nowrap">${item.namaPengantar}</td>
-          <td class="py-3 px-3 text-center">${fotoBtn}</td>
-        `;
-        tbody.appendChild(tr);
+      let countKerbau = 0, countSapi = 0, countKuda = 0;
+      formattedData.forEach(item => {
+        const j = String(item.jenisTernak).toLowerCase();
+        if (j.includes('kerbau')) countKerbau++;
+        else if (j.includes('sapi')) countSapi++;
+        else if (j.includes('kuda')) countKuda++;
       });
 
-      if (totalPages > 1) {
-        document.getElementById('paginationContainer').classList.remove('hidden-custom');
-        document.getElementById('pageIndicator').innerText = `Halaman ${currentPage} dari ${totalPages}`;
-        document.getElementById('btnFirst').disabled = (currentPage === 1);
-        document.getElementById('btnPrev').disabled = (currentPage === 1);
-        document.getElementById('btnNext').disabled = (currentPage === totalPages);
-        document.getElementById('btnLast').disabled = (currentPage === totalPages);
-      } else {
-        document.getElementById('paginationContainer').classList.add('hidden-custom');
-      }
-    }
+      const payload = {
+        success: true,
+        stats: {
+          total: formattedData.length,
+          kerbau: countKerbau,
+          sapi: countSapi,
+          kuda: countKuda
+        },
+        data: formattedData
+      };
 
-    function changePage(direction) { currentPage += direction; renderTabelPemeriksa(); }
-    function goToPage(page) { currentPage = page; renderTabelPemeriksa(); }
-    function goToLastPage() { currentPage = Math.ceil(filteredData.length / itemsPerPage); renderTabelPemeriksa(); }
-
-    function filterTabel() {
-      const q = document.getElementById('searchInput').value.toLowerCase().trim();
-      if (!q) {
-        filteredData = rawDataPemeriksa;
-      } else {
-        filteredData = rawDataPemeriksa.filter(item => 
-          (item.namaPemilik && item.namaPemilik.toLowerCase().includes(q)) ||
-          (item.nomorKkmt && item.nomorKkmt.toLowerCase().includes(q)) ||
-          (item.asalTernak && item.asalTernak.toLowerCase().includes(q)) ||
-          (item.namaPengantar && item.namaPengantar.toLowerCase().includes(q))
-        );
-      }
-      currentPage = 1;
-      renderTabelPemeriksa();
-    }
-
-    async function openSecurePhotoModal(encodedUrl) {
-      const decodedRawUrl = decodeURIComponent(encodedUrl);
-      const realUrl = resolveImageUrl(decodedRawUrl);
+      localStorage.setItem('portal_ternak_cache', JSON.stringify(payload));
+      localStorage.setItem('portal_ternak_time', new Date().getTime());
       
-      const modal = document.getElementById('photoModal');
-      const modalImg = document.getElementById('modalImage');
-      const imgLoading = document.getElementById('imageLoading');
+      processLoadedData(payload);
 
-      modal.classList.remove('hidden-custom');
-      modalImg.classList.add('hidden-custom');
-      imgLoading.classList.remove('hidden-custom');
-      imgLoading.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin text-blue-400"></i> Memuat gambar...`;
-      resetZoom();
+    } catch (err) {
+      console.error("Gagal menyinkronkan data Supabase:", err);
+      if (showLoading) {
+        document.getElementById('tabelLoading').classList.add('hidden-custom');
+        document.getElementById('emptyDataText').classList.remove('hidden-custom');
+      }
+    }
+  }
 
-      modalImg.src = realUrl;
-      modalImg.onload = function() {
-        imgLoading.classList.add('hidden-custom');
-        modalImg.classList.remove('hidden-custom');
-      };
-      modalImg.onerror = function() {
-        imgLoading.innerText = "Gagal memuat gambar dari server.";
-      };
+  function refreshData(force) {
+    if (force) {
+      localStorage.removeItem('portal_ternak_cache');
+      localStorage.removeItem('portal_ternak_time');
+    }
+    loadDataFromSupabase(true);
+  }
+
+  function processLoadedData(res) {
+    if (res.stats) {
+      document.getElementById('statTotal').innerText = res.stats.total || 0;
+      document.getElementById('statKerbau').innerText = res.stats.kerbau || 0;
+      document.getElementById('statSapi').innerText = res.stats.sapi || 0;
+      document.getElementById('statKuda').innerText = res.stats.kuda || 0;
+      document.getElementById('statsLoading').classList.add('hidden-custom');
+      document.getElementById('statsGrid').classList.remove('hidden-custom');
     }
 
-    function closePhotoModal() {
-      document.getElementById('photoModal').classList.add('hidden-custom');
-      document.getElementById('modalImage').src = "";
+    rawDataPemeriksa = Array.isArray(res.data) ? res.data : [];
+    filteredData = rawDataPemeriksa;
+    currentPage = 1;
+    renderTabelPemeriksa();
+  }
+
+  function getFotoPathFromItem(item) {
+    if (!item) return "";
+    return item.Link_FotoKKMT || "";
+  }
+
+  // --- PERBAIKAN PENTING: Pengecekan Foto Valid vs Kosong ---
+  function isValidPhotoUrl(rawPath) {
+    if (!rawPath || typeof rawPath !== 'string') return false;
+    const cleanPath = rawPath.trim().toLowerCase();
+    
+    // 1. Cek string kosong atau teks penanda default
+    const invalidKeywords = [
+      "", "-", "null", "undefined", "tidak ada", "tidak ada foto", 
+      "belum ada foto", "no image", "n/a", "none"
+    ];
+    if (invalidKeywords.includes(cleanPath)) return false;
+
+    // 2. Harus memiliki ekstensi gambar/dokumen yang valid
+    const validExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.pdf'];
+    return validExtensions.some(ext => cleanPath.endsWith(ext) || cleanPath.includes(ext + '?'));
+  }
+
+  function resolveImageUrl(rawUrl) {
+    if (!rawUrl) return "";
+    let cleaned = String(rawUrl).trim();
+    if (cleaned.startsWith('http://') || cleaned.startsWith('https://')) return cleaned;
+    cleaned = cleaned.replace(/^\/+/, '');
+    if (cleaned.includes('/')) {
+      const parts = cleaned.split('/');
+      cleaned = parts[parts.length - 1];
+    }
+    return SUPABASE_STORAGE_BASE + encodeURIComponent(cleaned);
+  }
+
+  function renderTabelPemeriksa() {
+    document.getElementById('tabelLoading').classList.add('hidden-custom');
+    const tbody = document.getElementById('tabelBody');
+    tbody.innerHTML = "";
+
+    if (filteredData.length === 0) {
+      document.getElementById('tabelContainer').classList.add('hidden-custom');
+      document.getElementById('paginationContainer').classList.add('hidden-custom');
+      document.getElementById('emptyDataText').classList.remove('hidden-custom');
+      document.getElementById('dataCount').innerText = 0;
+      return;
     }
 
-    function updateImageTransform() {
-      document.getElementById('modalImage').style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
+    document.getElementById('emptyDataText').classList.add('hidden-custom');
+
+    const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const pageData = filteredData.slice(startIndex, startIndex + itemsPerPage);
+
+    document.getElementById('dataCount').innerText = filteredData.length;
+    document.getElementById('tabelContainer').classList.remove('hidden-custom');
+
+    pageData.forEach(function(item, index) {
+      const tr = document.createElement('tr');
+      tr.className = "hover:bg-blue-50/50 transition";
+
+      const nomorUrut = startIndex + index + 1;
+      const fotoPath = getFotoPathFromItem(item);
+      const isPhotoValid = isValidPhotoUrl(fotoPath);
+
+      // Tampilkan tombol "Lihat Foto" HANYA jika file terdeteksi valid. Jika tidak, tampilkan "tidak ada foto".
+      const fotoBtn = isPhotoValid 
+        ? `<button onclick="openSecurePhotoModal('${encodeURIComponent(fotoPath)}')" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 active:bg-blue-100 whitespace-nowrap cursor-pointer"><i class="fa-solid fa-image"></i> Lihat Foto</button>`
+        : `<span class="text-gray-400 font-medium whitespace-nowrap text-xs">tidak ada foto</span>`;
+
+      tr.innerHTML = `
+        <td class="py-3 px-3 font-semibold text-gray-500">${nomorUrut}</td>
+        <td class="py-3 px-3 font-bold text-gray-900 whitespace-nowrap">${item.nomorKkmt}</td>
+        <td class="py-3 px-3 font-semibold text-blue-700 whitespace-nowrap">${item.jenisTernak}</td>
+        <td class="py-3 px-3 whitespace-nowrap">${item.jenisKelamin}</td>
+        <td class="py-3 px-3 min-w-[140px] font-bold text-gray-800">${item.namaPemilik}</td>
+        <td class="py-3 px-3 whitespace-nowrap">${item.asalTernak}</td>
+        <td class="py-3 px-3 whitespace-nowrap">${item.namaPengantar}</td>
+        <td class="py-3 px-3 text-center">${fotoBtn}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    if (totalPages > 1) {
+      document.getElementById('paginationContainer').classList.remove('hidden-custom');
+      document.getElementById('pageIndicator').innerText = `Halaman ${currentPage} dari ${totalPages}`;
+      document.getElementById('btnFirst').disabled = (currentPage === 1);
+      document.getElementById('btnPrev').disabled = (currentPage === 1);
+      document.getElementById('btnNext').disabled = (currentPage === totalPages);
+      document.getElementById('btnLast').disabled = (currentPage === totalPages);
+    } else {
+      document.getElementById('paginationContainer').classList.add('hidden-custom');
     }
+  }
 
-    function resetZoom() { scale = 1; pointX = 0; pointY = 0; updateImageTransform(); }
-    function zoomIn() { scale = Math.min(scale + 0.75, 5); updateImageTransform(); }
-    function zoomOut() { scale = Math.max(scale - 0.75, 1); if(scale===1){pointX=0;pointY=0;} updateImageTransform(); }
+  function changePage(direction) { currentPage += direction; renderTabelPemeriksa(); }
+  function goToPage(page) { currentPage = page; renderTabelPemeriksa(); }
+  function goToLastPage() { currentPage = Math.ceil(filteredData.length / itemsPerPage); renderTabelPemeriksa(); }
 
-    function initZoomAndPan() {
-      const container = document.getElementById('modalImageContainer');
-      const img = document.getElementById('modalImage');
-
-      img.addEventListener('dblclick', (e) => {
-        e.preventDefault();
-        scale = (scale === 1) ? 2.5 : 1;
-        if(scale === 1) { pointX = 0; pointY = 0; }
-        updateImageTransform();
-      });
-
-      container.addEventListener('mousedown', (e) => {
-        if (scale > 1) { isDragging = true; startX = e.clientX - pointX; startY = e.clientY - pointY; }
-      });
-      window.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
-        pointX = e.clientX - startX; pointY = e.clientY - startY;
-        updateImageTransform();
-      });
-      window.addEventListener('mouseup', () => { isDragging = false; });
-
-      container.addEventListener('touchstart', (e) => {
-        if (scale > 1 && e.touches.length === 1) { isDragging = true; startX = e.touches[0].clientX - pointX; startY = e.touches[0].clientY - startY; }
-      }, { passive: true });
-      window.addEventListener('touchmove', (e) => {
-        if (!isDragging || e.touches.length !== 1) return;
-        pointX = e.touches[0].clientX - startX; pointY = e.touches[0].clientY - startY;
-        updateImageTransform();
-      }, { passive: true });
-      window.addEventListener('touchend', () => { isDragging = false; });
+  function filterTabel() {
+    const q = document.getElementById('searchInput').value.toLowerCase().trim();
+    if (!q) {
+      filteredData = rawDataPemeriksa;
+    } else {
+      filteredData = rawDataPemeriksa.filter(item => 
+        (item.namaPemilik && item.namaPemilik.toLowerCase().includes(q)) ||
+        (item.nomorKkmt && item.nomorKkmt.toLowerCase().includes(q)) ||
+        (item.asalTernak && item.asalTernak.toLowerCase().includes(q)) ||
+        (item.namaPengantar && item.namaPengantar.toLowerCase().includes(q))
+      );
     }
-  </script>
+    currentPage = 1;
+    renderTabelPemeriksa();
+  }
+
+  // --- PERBAIKAN PENTING: Error handling jika foto di Supabase ternyata hilang/gagal dimuat ---
+  async function openSecurePhotoModal(encodedUrl) {
+    const decodedRawUrl = decodeURIComponent(encodedUrl);
+    const realUrl = resolveImageUrl(decodedRawUrl);
+    
+    const modal = document.getElementById('photoModal');
+    const modalImg = document.getElementById('modalImage');
+    const imgLoading = document.getElementById('imageLoading');
+
+    modal.classList.remove('hidden-custom');
+    modalImg.classList.add('hidden-custom');
+    imgLoading.classList.remove('hidden-custom');
+    imgLoading.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin text-blue-400"></i> Memuat gambar...`;
+    resetZoom();
+
+    modalImg.src = realUrl;
+    modalImg.onload = function() {
+      imgLoading.classList.add('hidden-custom');
+      modalImg.classList.remove('hidden-custom');
+    };
+    modalImg.onerror = function() {
+      imgLoading.innerHTML = `<span class="text-red-400 font-semibold"><i class="fa-solid fa-triangle-exclamation"></i> Berkas foto tidak ditemukan di bucket storage.</span>`;
+    };
+  }
+
+  function closePhotoModal() {
+    document.getElementById('photoModal').classList.add('hidden-custom');
+    document.getElementById('modalImage').src = "";
+  }
+
+  function updateImageTransform() {
+    document.getElementById('modalImage').style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
+  }
+
+  function resetZoom() { scale = 1; pointX = 0; pointY = 0; updateImageTransform(); }
+  function zoomIn() { scale = Math.min(scale + 0.75, 5); updateImageTransform(); }
+  function zoomOut() { scale = Math.max(scale - 0.75, 1); if(scale===1){pointX=0;pointY=0;} updateImageTransform(); }
+
+  function initZoomAndPan() {
+    const container = document.getElementById('modalImageContainer');
+    const img = document.getElementById('modalImage');
+
+    img.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      scale = (scale === 1) ? 2.5 : 1;
+      if(scale === 1) { pointX = 0; pointY = 0; }
+      updateImageTransform();
+    });
+
+    container.addEventListener('mousedown', (e) => {
+      if (scale > 1) { isDragging = true; startX = e.clientX - pointX; startY = e.clientY - pointY; }
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      pointX = e.clientX - startX; pointY = e.clientY - startY;
+      updateImageTransform();
+    });
+    window.addEventListener('mouseup', () => { isDragging = false; });
+
+    container.addEventListener('touchstart', (e) => {
+      if (scale > 1 && e.touches.length === 1) { isDragging = true; startX = e.touches[0].clientX - pointX; startY = e.touches[0].clientY - startY; }
+    }, { passive: true });
+    window.addEventListener('touchmove', (e) => {
+      if (!isDragging || e.touches.length !== 1) return;
+      pointX = e.touches[0].clientX - startX; pointY = e.touches[0].clientY - startY;
+      updateImageTransform();
+    }, { passive: true });
+    window.addEventListener('touchend', () => { isDragging = false; });
+  }
+</script>
 </body>
 </html>
