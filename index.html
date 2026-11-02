@@ -266,6 +266,7 @@
   }
 
   // Mengambil data langsung dari Supabase secara kilat (Tanpa GAS)
+  // Mengambil data lengkap dari Supabase (Menjangkau seluruh baris data)
   async function loadDataFromSupabase(showLoading) {
     if (showLoading) {
       document.getElementById('tabelLoading').classList.remove('hidden-custom');
@@ -273,28 +274,30 @@
     }
 
     try {
-      // Ambil data tabel secara paralel dengan urutan terbaru
-      const { data, error } = await _supabase
+      // 1. Ambil seluruh baris data menggunakan range(0, 9999) agar tidak terpotong limit default
+      const { data, error, count } = await _supabase
         .from('database_ternak_tab')
-        .select('*')
-        .order('No', { ascending: false });
+        .select('*', { count: 'exact' }) // Ambil count presisi dari database
+        .order('No', { ascending: false })
+        .range(0, 9999); // Memastikan mengambil seluruh baris (0 hingga 10.000 record)
+
       if (error) throw error;
 
-      // Format data agar sesuai dengan variabel template Anda di bawah
+      // 2. Format data dengan fallback fleksibel untuk nama kolom
       const formattedData = (data || []).map(item => ({
-        nomorKkmt: item.No_KKMT || item.nomorKkmt || '-',
-        jenisTernak: item.Jenis_Ternak || item.jenisTernak || '-',
-        jenisKelamin: item.Jenis_Kelamin || item.jenisKelamin || '-',
-        namaPemilik: item.Nama_Pemilik || item.namaPemilik || '-',
-        asalTernak: item.Asal_Ternak || item.asalTernak || '-',
-        namaPengantar: item.Nama_Pengantar || item.namaPengantar || '-',
-        Link_FotoKKMT: item.Link_FotoKKMT || item.link_fotokkmt || ''
+        nomorKkmt: item.No_KKMT || item.no_kkmt || item.nomorKkmt || '-',
+        jenisTernak: item.Jenis_Ternak || item.jenis_ternak || item.jenisTernak || '-',
+        jenisKelamin: item.Jenis_Kelamin || item.jenis_kelamin || item.jenisKelamin || '-',
+        namaPemilik: item.Nama_Pemilik || item.nama_pemilik || item.namaPemilik || '-',
+        asalTernak: item.Asal_Ternak || item.asal_ternak || item.asalTernak || '-',
+        namaPengantar: item.Nama_Pengantar || item.nama_pengantar || item.namaPengantar || '-',
+        Link_FotoKKMT: item.Link_FotoKKMT || item.link_fotokkmt || item.link_foto_kkmt || ''
       }));
 
-      // Hitung statistik secara instan di klien
+      // 3. Hitung statistik secara akurat
       let countKerbau = 0, countSapi = 0, countKuda = 0;
       formattedData.forEach(item => {
-        const j = item.jenisTernak.toLowerCase();
+        const j = String(item.jenisTernak).toLowerCase();
         if (j.includes('kerbau')) countKerbau++;
         else if (j.includes('sapi')) countSapi++;
         else if (j.includes('kuda')) countKuda++;
@@ -311,6 +314,7 @@
         data: formattedData
       };
 
+      // Simpan ke Cache Lokal
       localStorage.setItem('portal_ternak_cache', JSON.stringify(payload));
       localStorage.setItem('portal_ternak_time', new Date().getTime());
       
