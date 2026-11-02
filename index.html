@@ -2,8 +2,8 @@
   ====================================================================================
   Nama Aplikasi : Portal Pemeriksaan Data Ternak (v.2.3 - Optimized & Fast Load)
   Nama File     : index.html
-  Deskripsi     : Frontend portal monitoring ternak dengan optimasi Single Fetch, 
-                  Caching Lokal, Verifikasi Storage, serta pratinjau foto pop-up modal.
+  Deskripsi     : Frontend portal monitoring ternak dengan verifikasi presisi ketersediaan
+                  foto di bucket Supabase Storage secara kolektif.
   ====================================================================================
 -->
 <!DOCTYPE html>
@@ -34,7 +34,6 @@
     .overflow-x-auto::-webkit-scrollbar { height: 4px; }
     .overflow-x-auto::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     
-    /* Styling Modal & Interaksi Zoom/Pan Foto */
     #photoModal {
       transition: opacity 0.3s ease;
       overflow-y: auto;
@@ -220,7 +219,6 @@
   </footer>
 
   <script>
-    // Inisialisasi Supabase
     const SUPABASE_URL = "https://tdmcatsgixnvgkmxuzqt.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkbWNhdHNnaXhudmdrbXh1enF0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0NDU3MzMsImV4cCI6MjEwNDAyMTczM30.0Ijm8f4iu7uiUAhd1597vc9ptTponxW5U2CRfjCjbZE";
     const BUCKET_NAME = "Folder_Foto";
@@ -264,7 +262,7 @@
       document.getElementById('tanggalHariIni').innerText = new Date().toLocaleDateString('id-ID', opsi);
     }
 
-    // Mendapatkan nama file murni
+    // Fungsi ekstraksi nama file murni dari path/URL
     function extractFileName(rawPath) {
       if (!rawPath || typeof rawPath !== 'string') return "";
       let cleaned = rawPath.trim();
@@ -272,28 +270,27 @@
         const parts = cleaned.split('/');
         cleaned = parts[parts.length - 1];
       }
-      return cleaned;
+      return cleaned.toLowerCase();
     }
 
-    // Pengecekan Asinkron: Apakah file benar-benar ada di Bucket Storage Supabase?
-    async function verifyPhotoExistsInBucket(rawPath) {
-      const fileName = extractFileName(rawPath);
-      if (!fileName) return false;
-
-      const validExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.pdf'];
-      const hasValidExt = validExtensions.some(ext => fileName.toLowerCase().endsWith(ext));
-      if (!hasValidExt) return false;
-
+    // Mengambil seluruh daftar file di Bucket Storage sekaligus
+    async function fetchBucketFileList() {
       try {
-        const { data, error } = await _supabase.storage.from(BUCKET_NAME).download(fileName);
-        if (error || !data) return false;
-        return true;
-      } catch (err) {
-        return false;
+        const { data, error } = await _supabase.storage
+          .from(BUCKET_NAME)
+          .list('', { limit: 1000, offset: 0 });
+        
+        if (error || !data) return new Set();
+        
+        // Simpan semua nama file yang ada di bucket ke dalam Set (lowercase untuk kecocokan akurat)
+        const fileSet = new Set(data.map(f => f.name.toLowerCase()));
+        return fileSet;
+      } catch (e) {
+        console.error("Gagal mengambil daftar file bucket:", e);
+        return new Set();
       }
     }
 
-    // Mengambil data lengkap dan memverifikasi keberadaan foto di Storage secara paralel
     async function loadDataFromSupabase(showLoading) {
       if (showLoading) {
         document.getElementById('tabelLoading').classList.remove('hidden-custom');
@@ -301,6 +298,7 @@
       }
 
       try {
+        // 1. Ambil data dari tabel database
         const { data, error } = await _supabase
           .from('database_ternak_tab')
           .select('*', { count: 'exact' })
@@ -309,24 +307,28 @@
 
         if (error) throw error;
 
-        const mappedData = (data || []).map(item => ({
-          nomorKkmt: item.No_KKMT || item.no_kkmt || item.nomorKkmt || '-',
-          jenisTernak: item.Jenis_Ternak || item.jenis_ternak || item.jenisTernak || '-',
-          jenisKelamin: item.Jenis_Kelamin || item.jenis_kelamin || item.jenisKelamin || '-',
-          namaPemilik: item.Nama_Pemilik || item.nama_pemilik || item.namaPemilik || '-',
-          asalTernak: item.Asal_Ternak || item.asal_ternak || item.asalTernak || '-',
-          namaPengantar: item.Nama_Pengantar || item.nama_pengantar || item.namaPengantar || '-',
-          Link_FotoKKMT: item.Link_FotoKKMT || item.link_fotokkmt || item.link_foto_kkmt || '',
-          hasValidPhoto: false
-        }));
+        // 2. Ambil seluruh daftar file di bucket Storage
+        const bucketFilesSet = await fetchBucketFileList();
 
-        // Verifikasi keberadaan file di Bucket Storage untuk setiap baris data
-        const formattedData = await Promise.all(
-          mappedData.map(async (item) => {
-            const exists = await verifyPhotoExistsInBucket(item.Link_FotoKKMT);
-            return { ...item, hasValidPhoto: exists };
-          })
-        );
+        // 3. Cocokkan file Link_FotoKKMT dengan isi Bucket
+        const formattedData = (data || []).map(item => {
+          const rawLink = item.Link_FotoKKMT || item.link_fotokkmt || item.link_foto_kkmt || '';
+          const fileName = extractFileName(rawLink);
+          
+          // Memastikan nama file tidak kosong DAN terdaftar di bucket storage
+          const fileExistsInBucket = fileName !== "" && bucketFilesSet.has(fileName);
+
+          return {
+            nomorKkmt: item.No_KKMT || item.no_kkmt || item.nomorKkmt || '-',
+            jenisTernak: item.Jenis_Ternak || item.jenis_ternak || item.jenisTernak || '-',
+            jenisKelamin: item.Jenis_Kelamin || item.jenis_kelamin || item.jenisKelamin || '-',
+            namaPemilik: item.Nama_Pemilik || item.nama_pemilik || item.namaPemilik || '-',
+            asalTernak: item.Asal_Ternak || item.asal_ternak || item.asalTernak || '-',
+            namaPengantar: item.Nama_Pengantar || item.nama_pengantar || item.namaPengantar || '-',
+            Link_FotoKKMT: rawLink,
+            hasValidPhoto: fileExistsInBucket
+          };
+        });
 
         let countKerbau = 0, countSapi = 0, countKuda = 0;
         formattedData.forEach(item => {
@@ -423,10 +425,10 @@
         const nomorUrut = startIndex + index + 1;
         const fotoPath = item.Link_FotoKKMT;
         
-        // Kondisi Tombol / Keterangan Foto
+        // Logika Kondisional Tombol Foto / Keterangan Tidak Ada Foto
         const fotoBtn = item.hasValidPhoto 
           ? `<button onclick="openSecurePhotoModal('${encodeURIComponent(fotoPath)}')" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 active:bg-blue-100 whitespace-nowrap cursor-pointer"><i class="fa-solid fa-image"></i> Lihat Foto</button>`
-          : `<span class="text-gray-400 font-medium whitespace-nowrap text-xs">Tidak ada foto</span>`;
+          : `<span class="text-gray-400 font-medium whitespace-nowrap text-xs">tidak ada foto</span>`;
 
         tr.innerHTML = `
           <td class="py-3 px-3 font-semibold text-gray-500">${nomorUrut}</td>
@@ -492,7 +494,7 @@
         modalImg.classList.remove('hidden-custom');
       };
       modalImg.onerror = function() {
-        imgLoading.innerText = "Gagal memuat gambar atau file tidak ditemukan.";
+        imgLoading.innerText = "Gagal memuat gambar.";
       };
     }
 
